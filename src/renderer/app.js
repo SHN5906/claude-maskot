@@ -38,7 +38,7 @@
     nameMode = true;
     clearTimeout(hideTimer);
     askInput.value = config.name;
-    askInput.placeholder = 'Comment veux-tu qu’elle t’appelle ?';
+    askInput.placeholder = 'Comment veux-tu qu’il t’appelle ?';
     askInput.focus();
     askInput.select();
   }
@@ -76,7 +76,7 @@
     const nameEl = document.createElement('span');
     nameEl.className = 'name';
     nameEl.textContent = config.name;
-    nameEl.title = 'Clique pour changer comment elle t\u2019appelle';
+    nameEl.title = 'Clique pour changer comment il t\u2019appelle';
     nameEl.addEventListener('click', enterNameEdit);
     bubbleText.replaceChildren(
       nameEl,
