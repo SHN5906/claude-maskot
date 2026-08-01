@@ -271,6 +271,28 @@
     return tl;
   }
 
+  /* ---------- Réflexion : yeux en l'air, balancement lent ---------- */
+
+  let thinkTl = null;
+
+  function thinkStart() {
+    if (thinkTl) return;
+    gsap.set(root, { svgOrigin: GROUND });
+    thinkTl = gsap.timeline({ repeat: -1, yoyo: true });
+    thinkTl
+      .to(eyes, { y: -3, x: 2, scaleY: 0.8, duration: 0.5, ease: 'power2.out' }, 0)
+      .to(root, { rotation: 1.5, duration: 1.1, ease: 'sine.inOut' }, 0)
+      .to(root, { rotation: -1.5, duration: 1.1, ease: 'sine.inOut' });
+  }
+
+  function thinkStop() {
+    if (!thinkTl) return;
+    thinkTl.kill();
+    thinkTl = null;
+    gsap.to(eyes, { y: 0, x: 0, scaleY: 1, duration: 0.25, ease: 'power2.inOut' });
+    gsap.to(root, { rotation: 0, duration: 0.3, ease: 'power2.inOut' });
+  }
+
   /* ---------- Yeux qui suivent le curseur ---------- */
 
   const eyeFollowX = gsap.quickTo(eyes, 'x', { duration: 0.3, ease: 'power2.out' });
@@ -308,6 +330,8 @@
     dance,
     wave,
     sleep,
+    thinkStart,
+    thinkStop,
     eyeTrack,
     setHover,
     resetPose,

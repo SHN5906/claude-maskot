@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, Menu, Notification, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Menu, Notification, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
@@ -9,6 +9,11 @@ const POLL_MS = 60_000;
 
 const REFRESH_MIN_MS = 20_000;
 const STALE_MAX_MS = 10 * 60_000;
+
+// Une seule mascotte à la fois (sauf en mode capture dev)
+if (!process.env.MASKOT_SHOT && !app.requestSingleInstanceLock()) {
+  app.exit(0);
+}
 
 let win = null;
 let dragTimer = null;
@@ -122,7 +127,7 @@ function handleTransitions(prev, next) {
       try {
         new Notification({
           title: 'Claude Maskot',
-          body: `Batman, il ne vous reste que ${next.remainingPercent} % sur la session de 5 h.`,
+          body: `${getName()}, il ne vous reste que ${next.remainingPercent} % sur la session de 5 h.`,
         }).show();
       } catch {
         // les notifs peuvent être refusées, la bulle alerte de toute façon
@@ -258,9 +263,98 @@ ipcMain.on('drag-end', () => {
 
 ipcMain.handle('refresh-usage', () => pushUsage());
 
+/* ---------- Config : le petit nom et le dossier de contexte ---------- */
+
+function getName() {
+  const n = String(loadState().name || '').trim();
+  return n || 'Batman';
+}
+
+function getFolder() {
+  const f = loadState().folder;
+  try {
+    if (f && fs.statSync(f).isDirectory()) return f;
+  } catch {
+    // dossier supprimé depuis → retombe sur Général
+  }
+  return null;
+}
+
+function configPayload() {
+  const st = loadState();
+  return {
+    name: getName(),
+    folder: getFolder(),
+    folders: Array.isArray(st.folders) ? st.folders : [],
+  };
+}
+
+function sendConfig() {
+  if (win && !win.isDestroyed()) win.webContents.send('config', configPayload());
+}
+
+ipcMain.handle('get-config', () => configPayload());
+
+ipcMain.handle('set-name', (_e, name) => {
+  const clean = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+  saveState({ name: clean || null });
+  sendConfig();
+  return configPayload();
+});
+
+// Menu natif : choisir dans quel dossier Claude va chercher pour répondre
+ipcMain.on('folder-menu', () => {
+  if (!win) return;
+  const home = app.getPath('home');
+  const st = loadState();
+  const folders = (Array.isArray(st.folders) ? st.folders : []).filter((f) => {
+    try {
+      return fs.statSync(f).isDirectory();
+    } catch {
+      return false;
+    }
+  });
+  const current = getFolder();
+  const pick = async () => {
+    const res = await dialog.showOpenDialog(win, {
+      title: 'Où Claude doit-il aller pour répondre ?',
+      properties: ['openDirectory'],
+    });
+    if (res.canceled || !res.filePaths[0]) return;
+    const folder = res.filePaths[0];
+    saveState({
+      folder,
+      folders: [folder, ...folders.filter((f) => f !== folder)].slice(0, 5),
+    });
+    sendConfig();
+  };
+  Menu.buildFromTemplate([
+    {
+      label: 'Général (aucun dossier)',
+      type: 'radio',
+      checked: !current,
+      click: () => {
+        saveState({ folder: null });
+        sendConfig();
+      },
+    },
+    ...(folders.length ? [{ type: 'separator' }] : []),
+    ...folders.map((f) => ({
+      label: f.startsWith(home) ? `~${f.slice(home.length)}` : f,
+      type: 'radio',
+      checked: current === f,
+      click: () => {
+        saveState({ folder: f });
+        sendConfig();
+      },
+    })),
+    { type: 'separator' },
+    { label: 'Choisir un dossier…', click: pick },
+  ]).popup({ window: win });
+});
+
 /* ---------- Questions à Claude (via le CLI Claude Code, abonnement) ---------- */
 
-const questionsPath = path.join(__dirname, '..', 'questions.json');
 let claudeBin = null;
 
 function resolveClaudeBin() {
@@ -273,25 +367,23 @@ function resolveClaudeBin() {
   });
 }
 
-ipcMain.handle('get-questions', () => {
-  try {
-    const list = JSON.parse(fs.readFileSync(questionsPath, 'utf8'));
-    return Array.isArray(list) ? list.filter((q) => typeof q === 'string').slice(0, 6) : [];
-  } catch {
-    return [];
-  }
-});
-
 ipcMain.handle('ask-claude', async (_e, question) => {
   const q = String(question || '').trim().slice(0, 500);
   if (!q) return { ok: false, error: 'question vide' };
   const bin = await resolveClaudeBin();
   if (!bin) return { ok: false, error: 'CLI claude introuvable' };
+  const folder = getFolder();
+  const persona = `Réponds en français, de façon concise, en texte brut sans Markdown. L'utilisateur s'appelle « ${getName()} » — adresse-toi à lui par ce nom quand c'est naturel.`;
   return new Promise((resolve) => {
     execFile(
       bin,
-      ['-p', q, '--model', 'haiku'],
-      { timeout: 90_000, cwd: app.getPath('home'), maxBuffer: 1024 * 1024 },
+      ['-p', q, '--model', 'haiku', '--append-system-prompt', persona],
+      {
+        // Le dossier choisi devient le cwd : Claude peut lire le projet
+        timeout: 150_000,
+        cwd: folder || app.getPath('home'),
+        maxBuffer: 1024 * 1024,
+      },
       (err, stdout, stderr) => {
         if (err) {
           resolve({
@@ -306,6 +398,51 @@ ipcMain.handle('ask-claude', async (_e, question) => {
   });
 });
 
+/* ---------- Ouverture au démarrage (LaunchAgent) ---------- */
+
+const launchAgentPath = path.join(
+  app.getPath('home'),
+  'Library',
+  'LaunchAgents',
+  'com.claude-maskot.plist'
+);
+
+function isAutoStartOn() {
+  return fs.existsSync(launchAgentPath);
+}
+
+function setAutoStart(on) {
+  try {
+    if (on) {
+      // RunAtLoad ne s'activera qu'au prochain login (pas de launchctl load
+      // maintenant : ça lancerait une deuxième mascotte tout de suite).
+      const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.claude-maskot</string>
+  <key>ProgramArguments</key><array>
+    <string>${process.execPath}</string>
+    <string>${path.join(__dirname, '..')}</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+</dict></plist>
+`;
+      fs.mkdirSync(path.dirname(launchAgentPath), { recursive: true });
+      fs.writeFileSync(launchAgentPath, plist);
+    } else {
+      execFile('launchctl', ['unload', launchAgentPath], () => {
+        try {
+          fs.unlinkSync(launchAgentPath);
+        } catch {
+          // déjà supprimé
+        }
+      });
+    }
+  } catch {
+    // sans droits sur ~/Library/LaunchAgents, l'option reste sans effet
+  }
+}
+
 const PERF_LABELS = {
   gym: 'Gym',
   flag: 'Drapeau',
@@ -314,7 +451,6 @@ const PERF_LABELS = {
   danse: 'Danse',
   coucou: 'Coucou',
   dodo: 'Dodo',
-  star: 'Étoile Claude',
 };
 
 ipcMain.on('context-menu', () => {
@@ -328,7 +464,16 @@ ipcMain.on('context-menu', () => {
         click: () => win.webContents.send('play-perf', name),
       })),
     },
-    { label: 'Modifier les questions…', click: () => shell.openPath(questionsPath) },
+    {
+      label: "Comment elle m'appelle…",
+      click: () => win.webContents.send('edit-name'),
+    },
+    {
+      label: "Ouvrir au démarrage de l'ordinateur",
+      type: 'checkbox',
+      checked: isAutoStartOn(),
+      click: (item) => setAutoStart(item.checked),
+    },
     { type: 'separator' },
     { label: 'Quitter Claude Maskot', click: () => app.quit() },
   ]).popup({ window: win });
