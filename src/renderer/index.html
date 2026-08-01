@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>Claude Maskot</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="stage">
+    <div id="hot">
+      <div id="bubble" role="status" hidden>
+        <p id="bubble-text">Batman, il vous reste <strong id="bubble-percent">--&nbsp;%</strong> sur cette session de 5&nbsp;h.</p>
+        <div class="meter" aria-hidden="true"><div id="meter-fill"></div></div>
+        <p id="bubble-sub"></p>
+        <div class="tail" aria-hidden="true"></div>
+      </div>
+
+      <div id="mascot">
+        <!-- Walking Claude — rects reconstruits par @ayotomcs (Codrops, mai 2026) -->
+        <svg id="mascot-svg" viewBox="0 0 107 86" fill="none" xmlns="http://www.w3.org/2000/svg" class="overflow-visible">
+          <defs>
+            <clipPath id="ground-clip">
+              <rect x="-20" y="-50" width="160" height="136" />
+            </clipPath>
+          </defs>
+          <g id="claude-root">
+            <g clip-path="url(#ground-clip)">
+              <rect id="leg4" x="85" y="60" width="11" height="26" fill="#DD775B" />
+              <rect id="leg3" x="64" y="60" width="11" height="26" fill="#DD775B" />
+              <rect id="leg2" x="32" y="60" width="11" height="26" fill="#DD775B" />
+              <rect id="leg1" x="11" y="60" width="11" height="26" fill="#DD775B" />
+            </g>
+            <g id="body">
+              <rect id="bdy" x="11" width="85" height="65" fill="#DD775B" />
+              <rect id="right-hand" x="85" y="21" width="22" height="23" fill="#DD775B" />
+              <rect id="left-hand" y="21" width="22" height="23" fill="#DD775B" />
+              <g id="eyes">
+                <rect id="left-eye" x="75" y="11" width="11" height="11" fill="black" />
+                <rect id="right-eye" x="21" y="11" width="11" height="11" fill="black" />
+              </g>
+            </g>
+            <g id="zzz">
+              <rect id="zzz1" x="97" y="0" width="5" height="5" fill="#141413" opacity="0" />
+              <rect id="zzz2" x="104" y="-9" width="7" height="7" fill="#141413" opacity="0" />
+              <rect id="zzz3" x="112" y="-20" width="9" height="9" fill="#141413" opacity="0" />
+            </g>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../node_modules/gsap/dist/gsap.min.js"></script>
+  <script src="sprites.js"></script>
+  <script src="mascot.js"></script>
+  <script src="performances.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
