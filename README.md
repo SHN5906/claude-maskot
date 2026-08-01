@@ -84,6 +84,32 @@ pnpm start
 
 Il apparaît en bas à droite. Pour le fermer : clic droit → **Quitter Claude Maskot** (pas de Dock ni de fenêtre, c'est un widget). Pour qu'il revienne tout seul : clic droit → **Ouvrir au démarrage de l'ordinateur**.
 
+### Le lancer sans le terminal
+
+Depuis la racine du repo, fabrique un wrapper `.app` qui pointe sur le binaire Electron du projet :
+
+```bash
+APP="/Applications/Claude Maskot.app"   # ou ~/Applications si tu n'es pas admin
+mkdir -p "$APP/Contents/MacOS"
+printf '#!/bin/sh\nexec "%s/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" "%s"\n' "$PWD" "$PWD" > "$APP/Contents/MacOS/launcher"
+chmod +x "$APP/Contents/MacOS/launcher"
+cat > "$APP/Contents/Info.plist" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>Claude Maskot</string>
+  <key>CFBundleIdentifier</key><string>com.claude-maskot.launcher</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleExecutable</key><string>launcher</string>
+  <key>LSUIElement</key><true/>
+</dict>
+</plist>
+EOF
+```
+
+« Claude Maskot » est ensuite dans Spotlight et `/Applications`, double-cliquable, épinglable au Dock. Le relancer alors qu'il tourne déjà ne fait rien : verrou single-instance. Le wrapper pointe en dur sur le dossier du repo, donc si tu déplaces le projet, refais la manip. Icône optionnelle : un `icon.icns` dans `Contents/Resources` plus la clé `CFBundleIconFile` → `icon` dans le plist.
+
 ## Comment il sait ? (et vie privée)
 
 Le pourcentage vient du même endroit que `/usage` : l'endpoint OAuth officiel `https://api.anthropic.com/api/oauth/usage` (`five_hour.utilization`, `seven_day`, `limits`).
