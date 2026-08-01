@@ -465,7 +465,7 @@ ipcMain.on('context-menu', () => {
       })),
     },
     {
-      label: "Comment elle m'appelle…",
+      label: "Comment il m'appelle…",
       click: () => win.webContents.send('edit-name'),
     },
     {
