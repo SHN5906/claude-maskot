@@ -8,7 +8,7 @@ macOS · Electron · GSAP · aucune clé API
 
 <br />
 
-<img src="docs/bulle.gif" width="380" alt="La mascotte saute et ouvre une bulle : Batman, il vous reste 26 % sur cette session de 5 h." />
+<img src="docs/bulle.gif" width="340" alt="La mascotte saute et ouvre une bulle : Batman, il vous reste 26 % sur cette session de 5 h." />
 
 <br />
 
