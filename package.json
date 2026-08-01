@@ -1,0 +1,22 @@
+{
+  "name": "claude-maskot",
+  "productName": "Claude Maskot",
+  "version": "1.0.0",
+  "description": "Mascotte Claude flottante qui affiche le % restant de la session Claude Code (5 h)",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "gsap": "^3.12.5"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}
