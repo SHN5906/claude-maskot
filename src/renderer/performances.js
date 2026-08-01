@@ -83,21 +83,6 @@
       procedural: () => window.mascotAnim.sleep(),
       reset: () => window.mascotAnim.resetPose(),
     },
-    // Le logo étoile Claude qui tourne (le spinner de Claude Code)
-    star: {
-      width: 120,
-      frames: (svg) => [...svg.querySelectorAll(':scope > g')],
-      build(tl, frames) {
-        let t = 0;
-        for (let loop = 0; loop < 3; loop++) {
-          frames.forEach((_, f) => {
-            showOnly(tl, frames, f, t);
-            t += 0.11;
-          });
-        }
-        tl.set({}, {}, t + 0.5);
-      },
-    },
   };
 
   function showOnly(tl, frames, idx, at) {

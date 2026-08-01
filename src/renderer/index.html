@@ -14,7 +14,10 @@
         <div class="meter" aria-hidden="true"><div id="meter-fill"></div></div>
         <p id="bubble-sub"></p>
         <div id="ask">
-          <div id="ask-chips"></div>
+          <div id="ask-context">
+            <span id="ctx-label">Dossier</span>
+            <button id="ctx-folder" class="chip" type="button" title="Le dossier où Claude va chercher pour répondre">Général</button>
+          </div>
           <p id="ask-answer" hidden></p>
           <input id="ask-input" type="text" placeholder="Pose une question à Claude…" maxlength="500" spellcheck="false" />
         </div>

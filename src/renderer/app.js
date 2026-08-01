@@ -5,13 +5,54 @@
   const bubbleText = document.getElementById('bubble-text');
   const bubbleSub = document.getElementById('bubble-sub');
   const meterFill = document.getElementById('meter-fill');
-  const askChips = document.getElementById('ask-chips');
+  const ctxFolder = document.getElementById('ctx-folder');
   const askAnswer = document.getElementById('ask-answer');
   const askInput = document.getElementById('ask-input');
 
   let lastUsage = null;
   let bubbleOpen = false;
   let hideTimer = null;
+
+  /* ---------- Config : petit nom + dossier de contexte ---------- */
+
+  const ASK_PLACEHOLDER = 'Pose une question à Claude…';
+  let config = { name: 'Batman', folder: null, folders: [] };
+  let nameMode = false;
+
+  function applyConfig(c) {
+    if (!c) return;
+    config = c;
+    ctxFolder.textContent = c.folder ? c.folder.split('/').pop() : 'Général';
+    ctxFolder.title = c.folder
+      ? c.folder
+      : 'Question générale — clique pour choisir un dossier où Claude ira chercher';
+    if (bubbleOpen) renderUsage(lastUsage);
+  }
+
+  window.maskot.getConfig().then(applyConfig);
+  window.maskot.onConfig(applyConfig);
+  ctxFolder.addEventListener('click', () => window.maskot.folderMenu());
+
+  function enterNameEdit() {
+    if (nameMode) return;
+    nameMode = true;
+    clearTimeout(hideTimer);
+    askInput.value = config.name;
+    askInput.placeholder = 'Comment veux-tu qu’elle t’appelle ?';
+    askInput.focus();
+    askInput.select();
+  }
+
+  function exitNameEdit() {
+    nameMode = false;
+    askInput.value = '';
+    askInput.placeholder = ASK_PLACEHOLDER;
+  }
+
+  window.maskot.onEditName(() => {
+    showBubble();
+    enterNameEdit();
+  });
 
   /* ---------- Affichage de la conso ---------- */
 
@@ -20,8 +61,7 @@
     if (!bubbleOpen) return;
 
     if (!data || !data.ok) {
-      bubbleText.textContent =
-        'Batman, je n’arrive pas à lire la session. Ouvre Claude Code pour te reconnecter.';
+      bubbleText.textContent = `${config.name}, je n’arrive pas à lire la session. Ouvre Claude Code pour te reconnecter.`;
       bubbleSub.textContent = data && data.error ? `(${data.error})` : '';
       meterFill.style.width = '0%';
       bubble.classList.remove('low');
@@ -33,8 +73,14 @@
     const NBSP = '\u00A0';
     const strong = document.createElement('strong');
     strong.textContent = `${data.remainingPercent}${NBSP}%`;
+    const nameEl = document.createElement('span');
+    nameEl.className = 'name';
+    nameEl.textContent = config.name;
+    nameEl.title = 'Clique pour changer comment elle t\u2019appelle';
+    nameEl.addEventListener('click', enterNameEdit);
     bubbleText.replaceChildren(
-      'Batman, il vous reste ',
+      nameEl,
+      ', il vous reste ',
       strong,
       ` sur cette session de 5${NBSP}h.`
     );
@@ -82,11 +128,11 @@
     showBubble();
   });
 
-  // Session reset : petite fête (l'étoile Claude) + bulle à jour
+  // Session reset : petite danse de fête + bulle à jour
   window.maskot.onSessionReset((data) => {
     renderUsage(data);
     window.performances.interrupt();
-    window.performances.play('star');
+    window.performances.play('danse');
     showBubble();
   });
 
@@ -102,9 +148,7 @@
     bubbleOpen = true;
     bubble.hidden = false;
     renderUsage(lastUsage);
-    askChips.hidden = false;
     askAnswer.hidden = true;
-    window.maskot.getQuestions().then(renderChips);
     gsap.fromTo(
       bubble,
       { scale: 0.5, opacity: 0, y: 10 },
@@ -141,36 +185,21 @@
 
   let asking = false;
 
-  function renderChips(questions) {
-    askChips.replaceChildren(
-      ...questions.map((q) => {
-        const chip = document.createElement('button');
-        chip.className = 'chip';
-        chip.type = 'button';
-        chip.textContent = q;
-        chip.addEventListener('click', () => ask(q));
-        return chip;
-      })
-    );
-  }
-
   async function ask(question) {
     const q = String(question || '').trim();
     if (!q || asking) return;
     asking = true;
-    // La bulle reste ouverte tant qu'on discute ; les chips laissent la
-    // place à la réponse
+    // La bulle reste ouverte tant qu'on discute
     clearTimeout(hideTimer);
-    askChips.hidden = true;
     askInput.disabled = true;
     askAnswer.hidden = false;
     askAnswer.textContent = '';
     askAnswer.classList.add('thinking');
-    // Pendant la réflexion : l'étoile Claude tourne, comme le vrai spinner
+    // Pendant la réflexion : yeux en l'air, balancement pensif
     window.performances.interrupt();
-    window.performances.play('star', { loop: true });
+    window.mascotAnim.thinkStart();
     const res = await window.maskot.ask(q);
-    window.performances.interrupt();
+    window.mascotAnim.thinkStop();
     askAnswer.classList.remove('thinking');
     askAnswer.textContent = res && res.ok
       ? res.answer
@@ -182,8 +211,21 @@
 
   askInput.addEventListener('keydown', (e) => {
     e.stopPropagation();
-    if (e.key === 'Enter') ask(askInput.value);
-    if (e.key === 'Escape') hideBubble();
+    if (e.key === 'Enter') {
+      if (nameMode) {
+        window.maskot.setName(askInput.value).then((c) => {
+          applyConfig(c);
+          exitNameEdit();
+          window.mascotAnim.wave();
+        });
+      } else {
+        ask(askInput.value);
+      }
+    }
+    if (e.key === 'Escape') {
+      if (nameMode) exitNameEdit();
+      else hideBubble();
+    }
   });
 
   // Toute interaction avec la zone question désarme la fermeture auto
