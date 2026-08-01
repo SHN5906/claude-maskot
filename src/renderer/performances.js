@@ -129,7 +129,7 @@
     active = null;
   }
 
-  function play(name) {
+  function play(name, opts = {}) {
     if (active) cleanup();
     const perf = PERFS[name];
     if (!perf) return;
@@ -167,7 +167,11 @@
     }
 
     walker.style.visibility = 'hidden';
-    const tl = gsap.timeline({ onComplete: cleanup });
+    // loop: true → tourne jusqu'à interrupt() (ex. l'étoile pendant qu'une
+    // question est posée à Claude)
+    const tl = gsap.timeline(
+      opts.loop ? { repeat: -1 } : { onComplete: cleanup }
+    );
     perf.build(tl, frames);
     active = { tl, el: holder };
   }
