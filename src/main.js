@@ -1,10 +1,10 @@
-const { app, BrowserWindow, ipcMain, screen, Menu, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Menu, Notification, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
 
-const WIN_W = 320;
-const WIN_H = 250;
+const WIN_W = 340;
+const WIN_H = 500;
 const POLL_MS = 60_000;
 
 const REFRESH_MIN_MS = 20_000;
@@ -168,7 +168,7 @@ function defaultPosition() {
 
 function clampToDisplays(x, y) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return defaultPosition();
-  const visible = screen.getAllDisplays().some(({ bounds }) => {
+  const display = screen.getAllDisplays().find(({ bounds }) => {
     return (
       x > bounds.x - WIN_W + 60 &&
       x < bounds.x + bounds.width - 60 &&
@@ -176,7 +176,14 @@ function clampToDisplays(x, y) {
       y < bounds.y + bounds.height - 60
     );
   });
-  return visible ? { x, y } : defaultPosition();
+  if (!display) return defaultPosition();
+  // Garde la fenêtre entière dans l'écran (la mascotte est ancrée en bas :
+  // si la fenêtre grandit d'une version à l'autre, on remonte y).
+  const wa = display.workArea;
+  return {
+    x: Math.min(Math.max(x, wa.x), wa.x + wa.width - WIN_W),
+    y: Math.min(Math.max(y, wa.y), wa.y + wa.height - WIN_H),
+  };
 }
 
 function createWindow() {
@@ -251,6 +258,54 @@ ipcMain.on('drag-end', () => {
 
 ipcMain.handle('refresh-usage', () => pushUsage());
 
+/* ---------- Questions à Claude (via le CLI Claude Code, abonnement) ---------- */
+
+const questionsPath = path.join(__dirname, '..', 'questions.json');
+let claudeBin = null;
+
+function resolveClaudeBin() {
+  return new Promise((resolve) => {
+    if (claudeBin) return resolve(claudeBin);
+    execFile('/bin/zsh', ['-lc', 'which claude'], { timeout: 8000 }, (err, stdout) => {
+      claudeBin = !err && stdout.trim() ? stdout.trim().split('\n').pop() : null;
+      resolve(claudeBin);
+    });
+  });
+}
+
+ipcMain.handle('get-questions', () => {
+  try {
+    const list = JSON.parse(fs.readFileSync(questionsPath, 'utf8'));
+    return Array.isArray(list) ? list.filter((q) => typeof q === 'string').slice(0, 6) : [];
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle('ask-claude', async (_e, question) => {
+  const q = String(question || '').trim().slice(0, 500);
+  if (!q) return { ok: false, error: 'question vide' };
+  const bin = await resolveClaudeBin();
+  if (!bin) return { ok: false, error: 'CLI claude introuvable' };
+  return new Promise((resolve) => {
+    execFile(
+      bin,
+      ['-p', q, '--model', 'haiku'],
+      { timeout: 90_000, cwd: app.getPath('home'), maxBuffer: 1024 * 1024 },
+      (err, stdout, stderr) => {
+        if (err) {
+          resolve({
+            ok: false,
+            error: String(stderr || err.message || 'erreur').trim().slice(0, 200),
+          });
+        } else {
+          resolve({ ok: true, answer: stdout.trim() });
+        }
+      }
+    );
+  });
+});
+
 const PERF_LABELS = {
   gym: 'Gym',
   flag: 'Drapeau',
@@ -273,6 +328,7 @@ ipcMain.on('context-menu', () => {
         click: () => win.webContents.send('play-perf', name),
       })),
     },
+    { label: 'Modifier les questions…', click: () => shell.openPath(questionsPath) },
     { type: 'separator' },
     { label: 'Quitter Claude Maskot', click: () => app.quit() },
   ]).popup({ window: win });
@@ -285,8 +341,15 @@ function devScreenshot() {
   win.webContents.once('did-finish-load', () => {
     setTimeout(async () => {
       try {
+        // La vraie souris ne doit pas interférer avec la scène capturée
+        win.setIgnoreMouseEvents(true);
         const perf = (process.env.MASKOT_SHOT_PERF || '').replace(/[^a-z]/g, '');
-        if (perf) {
+        if (process.env.MASKOT_SHOT_ASK) {
+          await win.webContents.executeJavaScript(
+            `window.__maskotAsk(${JSON.stringify(String(process.env.MASKOT_SHOT_ASK))})`
+          );
+          await new Promise((r) => setTimeout(r, Number(process.env.MASKOT_SHOT_AT || 2000)));
+        } else if (perf) {
           await win.webContents.executeJavaScript(
             `window.performances.play('${perf}')`
           );

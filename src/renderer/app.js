@@ -5,6 +5,9 @@
   const bubbleText = document.getElementById('bubble-text');
   const bubbleSub = document.getElementById('bubble-sub');
   const meterFill = document.getElementById('meter-fill');
+  const askChips = document.getElementById('ask-chips');
+  const askAnswer = document.getElementById('ask-answer');
+  const askInput = document.getElementById('ask-input');
 
   let lastUsage = null;
   let bubbleOpen = false;
@@ -99,6 +102,9 @@
     bubbleOpen = true;
     bubble.hidden = false;
     renderUsage(lastUsage);
+    askChips.hidden = false;
+    askAnswer.hidden = true;
+    window.maskot.getQuestions().then(renderChips);
     gsap.fromTo(
       bubble,
       { scale: 0.5, opacity: 0, y: 10 },
@@ -130,6 +136,61 @@
     if (bubbleOpen) hideBubble();
     else showBubble();
   }
+
+  /* ---------- Questions à Claude ---------- */
+
+  let asking = false;
+
+  function renderChips(questions) {
+    askChips.replaceChildren(
+      ...questions.map((q) => {
+        const chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.type = 'button';
+        chip.textContent = q;
+        chip.addEventListener('click', () => ask(q));
+        return chip;
+      })
+    );
+  }
+
+  async function ask(question) {
+    const q = String(question || '').trim();
+    if (!q || asking) return;
+    asking = true;
+    // La bulle reste ouverte tant qu'on discute ; les chips laissent la
+    // place à la réponse
+    clearTimeout(hideTimer);
+    askChips.hidden = true;
+    askInput.disabled = true;
+    askAnswer.hidden = false;
+    askAnswer.textContent = '';
+    askAnswer.classList.add('thinking');
+    // Pendant la réflexion : l'étoile Claude tourne, comme le vrai spinner
+    window.performances.interrupt();
+    window.performances.play('star', { loop: true });
+    const res = await window.maskot.ask(q);
+    window.performances.interrupt();
+    askAnswer.classList.remove('thinking');
+    askAnswer.textContent = res && res.ok
+      ? res.answer
+      : `Impossible de répondre (${(res && res.error) || 'erreur'}).`;
+    askInput.disabled = false;
+    askInput.value = '';
+    asking = false;
+  }
+
+  askInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') ask(askInput.value);
+    if (e.key === 'Escape') hideBubble();
+  });
+
+  // Toute interaction avec la zone question désarme la fermeture auto
+  document.getElementById('ask').addEventListener('mousedown', () => {
+    clearTimeout(hideTimer);
+  });
+  askInput.addEventListener('focus', () => clearTimeout(hideTimer));
 
   /* ---------- Souris traversante hors du mascot ---------- */
 
@@ -236,6 +297,10 @@
   window.__maskotShowBubble = () => {
     window.mascotAnim.jump();
     showBubble();
+  };
+  window.__maskotAsk = (q) => {
+    showBubble();
+    ask(q);
   };
 
   // État partagé avec performances.js (planification des animations idle)

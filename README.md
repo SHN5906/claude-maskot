@@ -2,74 +2,93 @@
 
 # Claude Maskot
 
-**La mascotte Claude sur ton bureau — elle sait toujours où en est ta session Claude Code.**
+**La mascotte Claude vit sur ton bureau — et elle sait toujours où en est ta session Claude Code.**
 
-<img src="docs/bulle.gif" width="380" alt="La mascotte saute et affiche une bulle : Batman, il vous reste 26 % sur cette session de 5 h." />
+macOS · Electron · GSAP · aucune clé API
 
-*Un clic : « Batman, il vous reste 26 % sur cette session de 5 h. »*
+<br />
+
+<img src="docs/bulle.gif" width="380" alt="La mascotte saute et ouvre une bulle : Batman, il vous reste 26 % sur cette session de 5 h." />
+
+<br />
+
+*« Batman, il vous reste 26 % sur cette session de 5 h. »*
 
 </div>
 
 ---
 
-## C'est quoi ?
+## Elle fait quoi ?
 
-Un widget macOS (Electron + GSAP) qui pose la mascotte Claude en pixel-art sur ton écran, toujours au premier plan, et qui lit en direct la consommation de ta session Claude Code (la fenêtre de 5 h) :
+Elle affiche en direct l'état de ta session Claude Code (la fenêtre de 5 h) — le même chiffre que la commande `/usage` — et elle vit sa vie sur ton écran en attendant que tu la sollicites.
 
-- **Clic** → bulle avec le **% restant**, la jauge, le plan, l'heure de reset et le % hebdo
-- **Double-clic** → une animation différente à chaque fois
-- **Glisser** → tu la poses où tu veux (elle pendouille pendant le transport, position mémorisée)
-- **Survol** → ses yeux suivent ton curseur ; au repos elle respire, cligne, regarde autour d'elle
-- **Clic droit** → actualiser, choisir une animation, quitter
-- Elle **alerte d'elle-même** quand il reste 25 % puis 10 % (bulle + notification macOS), et fait tourner l'étoile Claude quand la session se recharge
-- La fenêtre est **traversante en dehors de la mascotte** : elle ne bloque jamais tes clics
+| Geste | Ce qui se passe |
+|---|---|
+| **Clic** | Elle saute et ouvre la bulle : % restant, jauge, plan, heure de reset, % hebdo |
+| **Écrire dans la bulle** | Tu lui poses une question, Claude répond — via ton CLI, ton abonnement |
+| **Double-clic** | Une animation différente à chaque fois, en cycle |
+| **Glisser** | Tu la poses où tu veux — elle pendouille pendant le transport, la position est retenue |
+| **Survol** | Ses yeux suivent ton curseur |
+| **Clic droit** | Actualiser · jouer une animation · modifier les questions · quitter |
 
-Sous 15 % restants, tout passe au rouge :
+Et sans rien lui demander :
+
+- toutes les 30–75 s d'inactivité, elle s'occupe (gym, boxe, dodo…)
+- quand il reste **25 %** puis **10 %**, elle t'alerte d'elle-même — bulle + notification macOS
+- quand la session se recharge, elle fête ça en faisant tourner l'étoile Claude
+- sous 15 % restants, le chiffre et la jauge passent au rouge
+- la fenêtre est **traversante en dehors d'elle** : elle ne bloque jamais tes clics
 
 <div align="center">
-<img src="docs/bulle-low.png" width="300" alt="Bulle en état critique : il reste 8 %, jauge rouge" />
+<img src="docs/bulle-low.png" width="290" alt="État critique : il reste 8 %, chiffre et jauge en rouge" />
 </div>
 
-## La troupe
+## Pose-lui tes questions
 
-Laissée tranquille, elle s'occupe toutes les 30–75 s. En double-cliquant, tu fais défiler les numéros :
+Un champ dans la bulle, des questions rapides cliquables, et Claude qui répond. Pendant la réflexion, la mascotte se transforme en étoile Claude qui tourne — le vrai spinner.
+
+<div align="center">
+<img src="docs/questions.png" width="300" alt="La bulle affiche une réponse de Claude sous les infos de session" />
+</div>
+
+Les réponses passent par `claude -p` : ton CLI Claude Code déjà connecté, donc **ton abonnement, zéro clé API, zéro config**. Les questions rapides vivent dans [`questions.json`](questions.json) — ajoute les tiennes (clic droit → **Modifier les questions…**).
+
+## La troupe
 
 | <img src="docs/gym.gif" width="240" /> | <img src="docs/flag.gif" width="240" /> | <img src="docs/march.gif" width="240" /> |
 |:---:|:---:|:---:|
 | **Gym** — 36 frames, bandeau inclus | **Drapeau** — lever à damier | **Marche** — 8 frames |
 | <img src="docs/boxe.gif" width="240" /> | <img src="docs/danse.gif" width="240" /> | <img src="docs/dodo.gif" width="240" /> |
-| **Boxe** — garde, jabs, uppercut | **Danse** — petits bonds | **Dodo** — avec bulles de sommeil |
+| **Boxe** — garde, jabs, uppercut | **Danse** — petits bonds | **Dodo** — bulles de sommeil |
 | <img src="docs/coucou.gif" width="240" /> | <img src="docs/star.gif" width="240" /> | |
 | **Coucou** — elle te salue | **Étoile Claude** — le spinner | |
 
-Les flip-books (gym, drapeau, marche, étoile) sont les animations du mascot Claude reconstituées rect par rect par [Ayotomiwa Wale-Durojaye](https://tympanus.net/codrops/author/ayotomcs/) dans son article Codrops [Reverse-Engineering Claude AI's Mascot Animations with SVG and GSAP](https://tympanus.net/codrops/2026/05/05/reverse-engineering-claude-ais-mascot-animations-with-svg-and-gsap/) — frames et tempos exacts extraits de sa [démo](https://ayotomcs.me/claude-mascot), embarqués en local. Boxe, danse, coucou et dodo sont des chorégraphies GSAP procédurales écrites dans le même esprit.
+Les flip-books (gym, drapeau, marche, étoile) sont les animations du mascot Claude reconstituées **rect par rect** par [Ayotomiwa Wale-Durojaye](https://tympanus.net/codrops/author/ayotomcs/) dans son article Codrops [*Reverse-Engineering Claude AI's Mascot Animations with SVG and GSAP*](https://tympanus.net/codrops/2026/05/05/reverse-engineering-claude-ais-mascot-animations-with-svg-and-gsap/) — frames et tempos exacts extraits de sa [démo](https://ayotomcs.me/claude-mascot), embarqués en local. Boxe, danse, coucou et dodo sont des chorégraphies GSAP procédurales écrites dans le même esprit.
 
 ## Installation
 
-Prérequis : macOS, [Claude Code](https://claude.com/claude-code) connecté (Pro/Max), Node ≥ 20, pnpm.
+Prérequis : macOS · [Claude Code](https://claude.com/claude-code) connecté (Pro/Max) · Node ≥ 20 · pnpm.
 
 ```bash
-git clone git@github.com:SHN5906/claude-maskot.git
+git clone https://github.com/SHN5906/claude-maskot.git
 cd claude-maskot
 pnpm install
 pnpm start
 ```
 
-Pour la fermer : clic droit sur la mascotte → **Quitter**.
+Elle apparaît en bas à droite. Pour la fermer : clic droit → **Quitter Claude Maskot** (elle n'a ni Dock ni fenêtre — c'est un widget).
 
-Lancement automatique à l'ouverture de session : voir [`docs`](#lancement-automatique-optionnel) plus bas.
+## Comment elle sait ? — et vie privée
 
-## Fonctionnement & vie privée
+Le pourcentage vient du même endroit que `/usage` : l'endpoint OAuth officiel `https://api.anthropic.com/api/oauth/usage` (`five_hour.utilization`, `seven_day`, `limits`).
 
-Le pourcentage vient du même endroit que la commande `/usage` de Claude Code : l'endpoint OAuth officiel `https://api.anthropic.com/api/oauth/usage` (champs `five_hour.utilization`, `seven_day`, `limits`).
-
-**Aucune clé ni token dans ce repo ni dans une config** : le token OAuth est lu à la volée dans le trousseau macOS (l'item « Claude Code-credentials » que Claude Code y range lui-même), et ne sert qu'à cet appel vers l'API d'Anthropic. Rien d'autre ne sort de ta machine.
+**Aucune clé ni token dans ce repo, ni dans une config.** Le token OAuth est lu à la volée dans le trousseau macOS — l'item « Claude Code-credentials » que Claude Code y range lui-même — gardé en mémoire le temps de la requête, jamais écrit ni loggé. Les seules sorties réseau : cet appel d'usage vers l'API d'Anthropic, et tes questions via le CLI `claude`. Rien d'autre.
 
 Rafraîchissement toutes les 60 s + à l'ouverture de la bulle, avec throttle (l'API rate-limite vite) et conservation de la dernière valeur connue en cas de coupure.
 
-## Dev
+## Bidouiller
 
-Capturer la fenêtre sans permission Screen Recording (c'est comme ça que les GIF de ce README ont été faits) :
+Capturer la fenêtre sans permission Screen Recording — c'est comme ça que tous les visuels de ce README ont été faits :
 
 ```bash
 # bulle ouverte (une image)
@@ -78,14 +97,24 @@ MASKOT_SHOT=/tmp/maskot.png pnpm start
 # une animation en cours de lecture
 MASKOT_SHOT=/tmp/boxe.png MASKOT_SHOT_PERF=boxe MASKOT_SHOT_AT=1200 pnpm start
 
-# rafale de frames pour un GIF
+# rafale de frames → GIF (ffmpeg)
 MASKOT_SHOT=/tmp/frames/boxe MASKOT_SHOT_PERF=boxe MASKOT_SHOT_FRAMES=42 MASKOT_SHOT_EVERY=80 pnpm start
 
-# données factices (pour tester sans l'API, ex. l'état critique)
+# une question posée automatiquement
+MASKOT_SHOT=/tmp/ask.png MASKOT_SHOT_ASK="Pourquoi le ciel est bleu ?" MASKOT_SHOT_AT=18000 pnpm start
+
+# données factices (tester sans l'API, ex. l'état critique)
 MASKOT_SHOT_MOCK=92 pnpm start
 ```
 
-Structure : `src/main.js` (fenêtre, trousseau, API, alertes) · `src/renderer/mascot.js` (le personnage et ses animations GSAP) · `src/renderer/performances.js` (flip-books + chorégraphies) · `src/renderer/sprites.js` (frames SVG embarquées) · `src/renderer/app.js` (bulle, drag, clics).
+| Fichier | Rôle |
+|---|---|
+| `src/main.js` | Fenêtre, trousseau, API d'usage, alertes, menu, CLI claude |
+| `src/renderer/mascot.js` | Le personnage et ses animations GSAP |
+| `src/renderer/performances.js` | Flip-books + chorégraphies, planification idle |
+| `src/renderer/sprites.js` | Frames SVG embarquées (généré depuis la démo Codrops) |
+| `src/renderer/app.js` | Bulle, questions, drag, clics |
+| `questions.json` | Tes questions rapides |
 
 ## Lancement automatique (optionnel)
 
@@ -107,6 +136,6 @@ launchctl load ~/Library/LaunchAgents/com.claude-maskot.plist
 
 ## Crédits
 
-- Design de la mascotte © [Anthropic](https://www.anthropic.com) — projet personnel non affilié
+- Design de la mascotte © [Anthropic](https://www.anthropic.com) — projet personnel, non affilié
 - Animations flip-book reconstituées par [Ayotomiwa Wale-Durojaye](https://ayotomcs.me/claude-mascot) ([article Codrops](https://tympanus.net/codrops/2026/05/05/reverse-engineering-claude-ais-mascot-animations-with-svg-and-gsap/))
 - Animations propulsées par [GSAP](https://gsap.com)
