@@ -39,6 +39,39 @@ body {
   align-items: center;
 }
 
+/* Mascotte en haut de l'écran : ancrage inversé, la bulle s'ouvre vers le bas.
+   Le padding-top laisse la place aux animations qui montent au-dessus de la
+   tête (saut −24, danse −40, zzz −28) — même valeur que FLIP_HEADROOM côté
+   main.js. */
+body.flip #stage {
+  align-items: flex-start;
+  padding-bottom: 0;
+  padding-top: 44px;
+}
+
+/* Les scènes sprite (gym 142px, drapeau, marche) restent ancrées aux pieds
+   mais ne doivent pas dépasser mascotte + marge : la gym se réduit de ~10 %
+   au lieu d'être rognée par le bord de la fenêtre. */
+body.flip #perf svg {
+  max-height: 128px;
+}
+
+body.flip #hot {
+  flex-direction: column-reverse;
+}
+
+body.flip #bubble {
+  margin-bottom: 0;
+  margin-top: 14px;
+  transform-origin: 50% 0%;
+}
+
+body.flip .tail {
+  bottom: auto;
+  top: -9px;
+  transform: rotate(225deg);
+}
+
 /* ---------- Mascotte ---------- */
 
 #mascot {

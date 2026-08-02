@@ -28,7 +28,7 @@ Il affiche en direct l'état de ta session Claude Code (la fenêtre de 5 h), le 
 | **Écrire dans la bulle** | Tu poses une question et Claude écrit sa réponse en direct, dans le dossier de ton choix — et il se souvient du fil, tu peux enchaîner |
 | **Déposer un fichier dans la bulle** | Glisse un PDF, un log, une image, du code : Claude le lit pour répondre |
 | **Double-clic** | Une animation différente à chaque fois, en cycle |
-| **Glisser** | Tu le poses où tu veux : il pendouille pendant le transport et la position est retenue |
+| **Glisser** | Tu le poses où tu veux : il pendouille pendant le transport et la position est retenue. Posé tout en haut de l'écran, la bulle s'ouvre vers le bas |
 | **Survol** | Ses yeux suivent ton curseur |
 | **⌥⌘M, depuis n'importe quelle app** | La bulle s'ouvre, champ prêt à taper — pas besoin de toucher la souris |
 | **Clic droit** | Actualiser · jouer une animation · changer ton petit nom · modèle des réponses · ouvrir au démarrage · quitter |
