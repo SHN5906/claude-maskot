@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('maskot', {
   ask: (question) => ipcRenderer.invoke('ask-claude', question),
   onAskDelta: (cb) => ipcRenderer.on('ask-delta', (_e, text) => cb(text)),
   onAskReset: (cb) => ipcRenderer.on('ask-reset', () => cb()),
+  onFocusAsk: (cb) => ipcRenderer.on('focus-ask', () => cb()),
   getConfig: () => ipcRenderer.invoke('get-config'),
   setName: (name) => ipcRenderer.invoke('set-name', name),
   folderMenu: () => ipcRenderer.send('folder-menu'),

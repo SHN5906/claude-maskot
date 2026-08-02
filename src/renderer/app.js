@@ -54,6 +54,13 @@
     enterNameEdit();
   });
 
+  // Raccourci clavier global (⌥⌘M) : bulle ouverte, champ prêt à taper
+  window.maskot.onFocusAsk(() => {
+    if (!bubbleOpen) showBubble();
+    clearTimeout(hideTimer);
+    askInput.focus();
+  });
+
   /* ---------- Affichage de la conso ---------- */
 
   function renderUsage(data) {
