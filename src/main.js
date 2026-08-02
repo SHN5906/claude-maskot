@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, screen, Menu, Notification, dialog, globalShortcut, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { execFile, spawn } = require('child_process');
 
 const WIN_W = 340;
@@ -41,27 +42,44 @@ function saveState(patch) {
 
 // Le token OAuth de Claude Code vit dans le trousseau macOS,
 // même item que celui utilisé par la commande /usage du CLI.
-function getToken() {
-  return new Promise((resolve, reject) => {
+// Le CLI (≥ 2.1.x) écrit l'item avec acct=<utilisateur> ; un item legacy
+// de même service avec acct="unknown" peut coexister et ne contenir que
+// mcpOAuth — il faut donc chercher avec -a d'abord, sinon on peut tomber
+// sur le mauvais item.
+function readKeychainItem(args) {
+  return new Promise((resolve) => {
     execFile(
       'security',
-      ['find-generic-password', '-s', 'Claude Code-credentials', '-w'],
+      ['find-generic-password', ...args, '-s', 'Claude Code-credentials', '-w'],
       { timeout: 5000 },
-      (err, stdout) => {
-        if (err) return reject(new Error('trousseau inaccessible'));
-        try {
-          const oauth = JSON.parse(stdout.trim()).claudeAiOauth || {};
-          if (!oauth.accessToken) return reject(new Error('token absent du trousseau'));
-          resolve({
-            token: oauth.accessToken,
-            subscriptionType: oauth.subscriptionType || null,
-          });
-        } catch {
-          reject(new Error('credentials illisibles'));
-        }
-      }
+      (err, stdout) => resolve(err ? null : stdout.trim())
     );
   });
+}
+
+async function getToken() {
+  const account = os.userInfo().username;
+  const candidates = [
+    await readKeychainItem(['-a', account]),
+    await readKeychainItem([]),
+  ];
+  let found = false;
+  for (const raw of candidates) {
+    if (raw === null) continue;
+    found = true;
+    try {
+      const oauth = JSON.parse(raw).claudeAiOauth || {};
+      if (oauth.accessToken) {
+        return {
+          token: oauth.accessToken,
+          subscriptionType: oauth.subscriptionType || null,
+        };
+      }
+    } catch {
+      throw new Error('credentials illisibles');
+    }
+  }
+  throw new Error(found ? 'token absent du trousseau' : 'trousseau inaccessible');
 }
 
 async function fetchUsage() {
