@@ -184,11 +184,29 @@
   /* ---------- Questions à Claude ---------- */
 
   let asking = false;
+  let streamed = '';
+
+  // La réponse arrive en direct : chaque delta s'ajoute dans la bulle,
+  // les pointillés « thinking » restent en curseur de frappe jusqu'à la fin
+  window.maskot.onAskDelta((text) => {
+    if (!asking) return;
+    streamed += text;
+    askAnswer.textContent = streamed;
+    askAnswer.scrollTop = askAnswer.scrollHeight;
+  });
+
+  // La conversation a expiré côté CLI : le main relance de zéro
+  window.maskot.onAskReset(() => {
+    if (!asking) return;
+    streamed = '';
+    askAnswer.textContent = '';
+  });
 
   async function ask(question) {
     const q = String(question || '').trim();
     if (!q || asking) return;
     asking = true;
+    streamed = '';
     // La bulle reste ouverte tant qu'on discute
     clearTimeout(hideTimer);
     askInput.disabled = true;
@@ -201,6 +219,7 @@
     const res = await window.maskot.ask(q);
     window.mascotAnim.thinkStop();
     askAnswer.classList.remove('thinking');
+    // Le texte final du CLI fait foi (les deltas peuvent être incomplets)
     askAnswer.textContent = res && res.ok
       ? res.answer
       : `Impossible de répondre (${(res && res.error) || 'erreur'}).`;
