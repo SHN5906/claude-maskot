@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, Menu, Notification, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Menu, Notification, dialog, globalShortcut, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile, spawn } = require('child_process');
@@ -395,9 +395,36 @@ function resolveClaudeBin() {
   });
 }
 
-// Une conversation par dossier de contexte, le temps du run : le session_id
-// renvoyé par le CLI permet d'enchaîner les questions avec --resume.
-const askSessions = new Map();
+// Une conversation par dossier de contexte : le session_id renvoyé par le CLI
+// permet d'enchaîner les questions avec --resume. Persisté dans state.json
+// pour que les fils survivent aux redémarrages du widget.
+let askSessions = null;
+
+function getAskSessions() {
+  if (!askSessions) {
+    askSessions = new Map(Object.entries(loadState().askSessions || {}));
+  }
+  return askSessions;
+}
+
+function saveAskSession(key, sessionId) {
+  const sessions = getAskSessions();
+  if (sessionId) sessions.set(key, sessionId);
+  else sessions.delete(key);
+  saveState({ askSessions: Object.fromEntries(sessions) });
+}
+
+// Modèle des réponses, choisi dans le menu clic droit
+const ASK_MODELS = {
+  haiku: 'Haiku (rapide)',
+  sonnet: 'Sonnet (équilibré)',
+  opus: 'Opus (soigné)',
+};
+
+function getModel() {
+  const m = String(loadState().model || '');
+  return ASK_MODELS[m] ? m : 'haiku';
+}
 
 function sendAsk(channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
@@ -427,7 +454,7 @@ ipcMain.handle('ask-claude', async (_e, question) => {
 
   const run = (resumeId) =>
     new Promise((resolve) => {
-      const args = ['-p', q, '--model', 'haiku', '--append-system-prompt', persona];
+      const args = ['-p', q, '--model', getModel(), '--append-system-prompt', persona];
       if (resumeId) args.push('--resume', resumeId);
       // stream-json : la réponse arrive en deltas, poussés à la bulle au fil
       // de l'eau (le CLI exige --verbose avec ce format en mode -p)
@@ -473,7 +500,7 @@ ipcMain.handle('ask-claude', async (_e, question) => {
       });
       child.on('close', (_code, signal) => {
         if (result && !result.is_error && typeof result.result === 'string') {
-          if (result.session_id) askSessions.set(folderKey, result.session_id);
+          if (result.session_id) saveAskSession(folderKey, result.session_id);
           resolve({ ok: true, answer: result.result.trim() });
         } else if (signal) {
           resolve({ ok: false, error: 'délai dépassé', resumed: Boolean(resumeId) });
@@ -488,10 +515,10 @@ ipcMain.handle('ask-claude', async (_e, question) => {
       });
     });
 
-  let res = await run(askSessions.get(folderKey) || null);
+  let res = await run(getAskSessions().get(folderKey) || null);
   if (!res.ok && res.resumed) {
     // La session a pu expirer côté CLI : on repart d'une conversation neuve
-    askSessions.delete(folderKey);
+    saveAskSession(folderKey, null);
     sendAsk('ask-reset');
     res = await run(null);
   }
@@ -570,6 +597,15 @@ ipcMain.on('context-menu', () => {
       click: () => win.webContents.send('edit-name'),
     },
     {
+      label: 'Modèle des réponses',
+      submenu: Object.entries(ASK_MODELS).map(([value, label]) => ({
+        label,
+        type: 'radio',
+        checked: getModel() === value,
+        click: () => saveState({ model: value }),
+      })),
+    },
+    {
       label: "Ouvrir au démarrage de l'ordinateur",
       type: 'checkbox',
       checked: isAutoStartOn(),
@@ -579,6 +615,43 @@ ipcMain.on('context-menu', () => {
     { label: 'Quitter Claude Maskot', click: () => app.quit() },
   ]).popup({ window: win });
 });
+
+/* ---------- Vérification de mise à jour (releases GitHub) ---------- */
+
+const RELEASES_PAGE = 'https://github.com/SHN5906/claude-maskot/releases/latest';
+
+function isNewerVersion(remote, local) {
+  const r = String(remote).replace(/^v/, '').split('.').map(Number);
+  const l = String(local).split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((r[i] || 0) > (l[i] || 0)) return true;
+    if ((r[i] || 0) < (l[i] || 0)) return false;
+  }
+  return false;
+}
+
+async function checkForUpdate() {
+  try {
+    const res = await fetch(
+      'https://api.github.com/repos/SHN5906/claude-maskot/releases/latest',
+      { headers: { Accept: 'application/vnd.github+json' } }
+    );
+    if (!res.ok) return;
+    const tag = String((await res.json()).tag_name || '');
+    if (!tag || !isNewerVersion(tag, app.getVersion())) return;
+    // Une seule notification par version, pas de harcèlement à chaque lancement
+    if (loadState().updateNotified === tag) return;
+    saveState({ updateNotified: tag });
+    const notif = new Notification({
+      title: 'Claude Maskot',
+      body: `La version ${tag.replace(/^v/, '')} est disponible — clique pour la récupérer.`,
+    });
+    notif.on('click', () => shell.openExternal(RELEASES_PAGE));
+    notif.show();
+  } catch {
+    // hors-ligne, rate-limit GitHub ou notifs refusées : on retentera
+  }
+}
 
 // Mode dev : MASKOT_SHOT=/chemin.png pnpm start → capture la fenêtre bulle
 // ouverte puis quitte. Avec MASKOT_SHOT_PERF=gym|flag|march|confetti, capture
@@ -633,10 +706,22 @@ function devScreenshot() {
 app.whenReady().then(() => {
   if (app.dock) app.dock.hide();
   createWindow();
+  // ⌥⌘M depuis n'importe quelle app : la bulle s'ouvre prête à taper
+  // (échec silencieux si le raccourci est déjà pris ailleurs)
+  globalShortcut.register('Alt+Command+M', () => {
+    if (!win || win.isDestroyed()) return;
+    app.focus({ steal: true });
+    win.focus();
+    win.webContents.send('focus-ask');
+  });
   if (process.env.MASKOT_SHOT) devScreenshot();
   pushUsage();
   setInterval(pushUsage, POLL_MS);
+  setTimeout(checkForUpdate, 15_000);
+  setInterval(checkForUpdate, 24 * 3_600_000);
 });
+
+app.on('will-quit', () => globalShortcut.unregisterAll());
 
 app.on('window-all-closed', () => {
   app.quit();

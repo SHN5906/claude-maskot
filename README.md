@@ -29,7 +29,8 @@ Il affiche en direct l'état de ta session Claude Code (la fenêtre de 5 h), le 
 | **Double-clic** | Une animation différente à chaque fois, en cycle |
 | **Glisser** | Tu le poses où tu veux : il pendouille pendant le transport et la position est retenue |
 | **Survol** | Ses yeux suivent ton curseur |
-| **Clic droit** | Actualiser · jouer une animation · changer ton petit nom · ouvrir au démarrage · quitter |
+| **⌥⌘M, depuis n'importe quelle app** | La bulle s'ouvre, champ prêt à taper — pas besoin de toucher la souris |
+| **Clic droit** | Actualiser · jouer une animation · changer ton petit nom · modèle des réponses · ouvrir au démarrage · quitter |
 
 Et sans rien lui demander :
 
@@ -47,7 +48,7 @@ Et sans rien lui demander :
 
 Un champ dans la bulle, et Claude qui répond **en streaming** : la réponse s'écrit sous tes yeux, pointillés en curseur de frappe. Le bouton **Dossier** choisit où Claude va chercher : « Général » pour une question libre, ou n'importe quel dossier de ta machine. Claude tourne alors dedans et peut lire le projet pour te répondre (« c'est quoi ce repo ? », « où est géré le login ? »…). Les cinq derniers dossiers restent à portée de clic.
 
-La conversation a de la suite dans les idées : chaque dossier garde son fil tant que le widget tourne, tu peux répondre « détaille le deuxième point » et il saura de quoi tu parles.
+La conversation a de la suite dans les idées : chaque dossier garde son fil, même après un redémarrage du widget — tu peux répondre « détaille le deuxième point » et il saura de quoi tu parles. Et quand la question mérite mieux qu'une réponse rapide, clic droit → **Modèle des réponses** pour passer de Haiku à Sonnet ou Opus.
 
 Pendant qu'il attend la réponse, il prend sa pose pensive : yeux au ciel, balancement lent.
 
@@ -111,7 +112,7 @@ pnpm dist   # fabrique dist/mac-arm64/Claude Maskot.app → glisse-la dans /Appl
 
 Le pourcentage vient du même endroit que `/usage` : l'endpoint OAuth officiel `https://api.anthropic.com/api/oauth/usage` (`five_hour.utilization`, `seven_day`, `limits`).
 
-**Aucune clé ni token dans ce repo, ni dans une config.** Le token OAuth est lu à la volée dans le trousseau macOS (l'item « Claude Code-credentials » que Claude Code y range lui-même), gardé en mémoire le temps de la requête, jamais écrit ni loggé. Les seules sorties réseau : cet appel d'usage vers l'API d'Anthropic, et tes questions via le CLI `claude`. Rien d'autre.
+**Aucune clé ni token dans ce repo, ni dans une config.** Le token OAuth est lu à la volée dans le trousseau macOS (l'item « Claude Code-credentials » que Claude Code y range lui-même), gardé en mémoire le temps de la requête, jamais écrit ni loggé. Les seules sorties réseau : cet appel d'usage vers l'API d'Anthropic, tes questions via le CLI `claude`, et un appel anonyme à l'API GitHub (une fois par jour) pour te prévenir quand une mise à jour du widget existe. Rien d'autre.
 
 Rafraîchissement toutes les 60 s + à l'ouverture de la bulle, avec throttle (l'API rate-limite vite) et conservation de la dernière valeur connue en cas de coupure.
 
