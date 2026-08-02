@@ -6,6 +6,18 @@ const { execFile, spawn } = require('child_process');
 
 const WIN_W = 340;
 const WIN_H = 500;
+// Géométrie du renderer : #stage a 10px de padding et le svg mascotte
+// rend à 104 × 86/107 ≈ 84px de haut. Sert à convertir position fenêtre
+// ↔ position mascotte à l'écran selon l'ancrage.
+const STAGE_PAD = 10;
+const MASCOT_H = 84;
+// En ancrage haut, les animations (saut, danse, scènes) montent au-dessus de
+// la tête : il leur faut cette marge dans la fenêtre, macOS interdisant de
+// déborder au-dessus de la zone de travail. Doit suivre le padding-top de
+// body.flip #stage dans style.css.
+const FLIP_HEADROOM = 44;
+const MASCOT_TOP_BOTTOM = WIN_H - STAGE_PAD - MASCOT_H; // ancrage bas (défaut)
+const MASCOT_TOP_TOP = FLIP_HEADROOM; // ancrage haut (mascotte près du bord supérieur)
 const POLL_MS = 60_000;
 
 const REFRESH_MIN_MS = 20_000;
@@ -18,6 +30,9 @@ if (!process.env.MASKOT_SHOT && !app.requestSingleInstanceLock()) {
 
 let win = null;
 let dragTimer = null;
+// Ancrage inversé : mascotte en haut de la fenêtre, bulle ouverte vers le bas.
+// Activé quand la mascotte est trop haute pour laisser la bulle au-dessus.
+let flip = false;
 let lastUsage = null;
 let lastGood = null;
 let lastAttempt = 0;
@@ -206,18 +221,37 @@ function clampToDisplays(x, y) {
       y < bounds.y + bounds.height - 60
     );
   });
-  if (!display) return defaultPosition();
+  if (!display) {
+    flip = false;
+    return defaultPosition();
+  }
+  const wa = display.workArea;
+  const cx = Math.min(Math.max(x, wa.x), wa.x + wa.width - WIN_W);
+  if (flip) {
+    // Ancrage haut : la fenêtre peut déborder sous l'écran, seule la
+    // mascotte (en haut de la fenêtre) doit rester entièrement visible.
+    return {
+      x: cx,
+      y: Math.min(Math.max(y, wa.y), wa.y + wa.height - (FLIP_HEADROOM + MASCOT_H)),
+    };
+  }
   // Garde la fenêtre entière dans l'écran (la mascotte est ancrée en bas :
   // si la fenêtre grandit d'une version à l'autre, on remonte y).
-  const wa = display.workArea;
   return {
-    x: Math.min(Math.max(x, wa.x), wa.x + wa.width - WIN_W),
+    x: cx,
     y: Math.min(Math.max(y, wa.y), wa.y + wa.height - WIN_H),
   };
 }
 
+function setFlip(next) {
+  if (flip === next) return;
+  flip = next;
+  if (win && !win.isDestroyed()) win.webContents.send('flip', flip);
+}
+
 function createWindow() {
   const state = loadState();
+  flip = Boolean(state.flip) || Boolean(process.env.MASKOT_SHOT_FLIP);
   const { x, y } = clampToDisplays(state.x, state.y);
 
   win = new BrowserWindow({
@@ -249,6 +283,7 @@ function createWindow() {
 
   win.webContents.on('did-finish-load', () => {
     if (lastUsage) win.webContents.send('usage', lastUsage);
+    if (flip) win.webContents.send('flip', true);
   });
 
   win.on('closed', () => {
@@ -267,11 +302,21 @@ ipcMain.on('drag-start', () => {
   const [wx, wy] = win.getPosition();
   const cursor = screen.getCursorScreenPoint();
   const offX = cursor.x - wx;
-  const offY = cursor.y - wy;
+  // Offset curseur → haut de la mascotte à l'écran : stable même si
+  // l'ancrage change en cours de drag (la fenêtre saute, pas la mascotte).
+  const offY = cursor.y - (wy + (flip ? MASCOT_TOP_TOP : MASCOT_TOP_BOTTOM));
   dragTimer = setInterval(() => {
     if (!win) return;
     const p = screen.getCursorScreenPoint();
-    win.setPosition(p.x - offX, p.y - offY);
+    const mascotY = p.y - offY;
+    const wa = screen.getDisplayNearestPoint(p).workArea;
+    // Plus assez de place au-dessus pour la bulle → la mascotte s'ancre en
+    // haut de la fenêtre et la bulle s'ouvrira vers le bas.
+    setFlip(mascotY - MASCOT_TOP_BOTTOM < wa.y);
+    win.setPosition(
+      p.x - offX,
+      flip ? Math.max(wa.y, mascotY - MASCOT_TOP_TOP) : mascotY - MASCOT_TOP_BOTTOM
+    );
   }, 16);
 });
 
@@ -282,7 +327,7 @@ ipcMain.on('drag-end', () => {
   }
   if (win) {
     const [x, y] = win.getPosition();
-    saveState({ x, y });
+    saveState({ x, y, flip });
   }
 });
 

@@ -14,6 +14,13 @@
   let bubbleOpen = false;
   let hideTimer = null;
 
+  // Ancrage inversé (mascotte en haut de l'écran) : la bulle s'ouvre vers le bas
+  let flipped = false;
+  window.maskot.onFlip((f) => {
+    flipped = f;
+    document.body.classList.toggle('flip', f);
+  });
+
   /* ---------- Config : petit nom + dossier de contexte ---------- */
 
   const ASK_PLACEHOLDER = 'Pose une question à Claude…';
@@ -159,7 +166,7 @@
     askAnswer.hidden = true;
     gsap.fromTo(
       bubble,
-      { scale: 0.5, opacity: 0, y: 10 },
+      { scale: 0.5, opacity: 0, y: flipped ? -10 : 10 },
       { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: 'back.out(1.8)' }
     );
     clearTimeout(hideTimer);
@@ -175,7 +182,7 @@
     gsap.to(bubble, {
       scale: 0.6,
       opacity: 0,
-      y: 8,
+      y: flipped ? -8 : 8,
       duration: 0.2,
       ease: 'power2.in',
       onComplete: () => {

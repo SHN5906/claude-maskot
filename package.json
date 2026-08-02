@@ -1,7 +1,7 @@
 {
   "name": "claude-maskot",
   "productName": "Claude Maskot",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Mascotte Claude flottante qui affiche le % restant de la session Claude Code (5 h)",
   "private": true,
   "main": "src/main.js",

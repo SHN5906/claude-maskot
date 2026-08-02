@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('maskot', {
   onSessionReset: (cb) => ipcRenderer.on('session-reset', (_e, data) => cb(data)),
   onPlayPerf: (cb) => ipcRenderer.on('play-perf', (_e, name) => cb(name)),
   onConfig: (cb) => ipcRenderer.on('config', (_e, config) => cb(config)),
+  onFlip: (cb) => ipcRenderer.on('flip', (_e, flipped) => cb(flipped)),
   onEditName: (cb) => ipcRenderer.on('edit-name', () => cb()),
   refresh: () => ipcRenderer.invoke('refresh-usage'),
   ask: (question, files) => ipcRenderer.invoke('ask-claude', question, files),
