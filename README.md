@@ -26,6 +26,7 @@ Il affiche en direct l'état de ta session Claude Code (la fenêtre de 5 h), le 
 |---|---|
 | **Clic** | Il saute et ouvre la bulle : % restant, jauge, plan, heure de reset, % hebdo |
 | **Écrire dans la bulle** | Tu poses une question et Claude écrit sa réponse en direct, dans le dossier de ton choix — et il se souvient du fil, tu peux enchaîner |
+| **Déposer un fichier dans la bulle** | Glisse un PDF, un log, une image, du code : Claude le lit pour répondre |
 | **Double-clic** | Une animation différente à chaque fois, en cycle |
 | **Glisser** | Tu le poses où tu veux : il pendouille pendant le transport et la position est retenue |
 | **Survol** | Ses yeux suivent ton curseur |
@@ -47,6 +48,8 @@ Et sans rien lui demander :
 ## Pose-lui tes questions dans le dossier que tu veux
 
 Un champ dans la bulle, et Claude qui répond **en streaming** : la réponse s'écrit sous tes yeux, pointillés en curseur de frappe. Le bouton **Dossier** choisit où Claude va chercher : « Général » pour une question libre, ou n'importe quel dossier de ta machine. Claude tourne alors dedans et peut lire le projet pour te répondre (« c'est quoi ce repo ? », « où est géré le login ? »…). Les cinq derniers dossiers restent à portée de clic.
+
+Tu peux aussi **déposer des fichiers dans la bulle ouverte** (jusqu'à trois) : ils s'affichent en chips au-dessus du champ, un clic les retire, et Claude les lit pour répondre — un PDF à résumer, un log à décortiquer, une capture d'écran à décrire. Une fois la réponse donnée, plus besoin des chips : le fil s'en souvient.
 
 La conversation a de la suite dans les idées : chaque dossier garde son fil, même après un redémarrage du widget — tu peux répondre « détaille le deuxième point » et il saura de quoi tu parles. Et quand la question mérite mieux qu'une réponse rapide, clic droit → **Modèle des réponses** pour passer de Haiku à Sonnet, Opus, ou Fable pour sortir le grand jeu.
 

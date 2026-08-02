@@ -8,6 +8,7 @@
   const ctxFolder = document.getElementById('ctx-folder');
   const askAnswer = document.getElementById('ask-answer');
   const askInput = document.getElementById('ask-input');
+  const askFiles = document.getElementById('ask-files');
 
   let lastUsage = null;
   let bubbleOpen = false;
@@ -192,6 +193,54 @@
 
   let asking = false;
   let streamed = '';
+  let attachedFiles = [];
+
+  /* ---------- Fichiers déposés dans la bulle ---------- */
+
+  function renderFiles() {
+    askFiles.replaceChildren(
+      ...attachedFiles.map((p) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip';
+        chip.textContent = `${p.split('/').pop()} ×`;
+        chip.title = `${p} — clique pour retirer`;
+        chip.addEventListener('click', () => {
+          attachedFiles = attachedFiles.filter((f) => f !== p);
+          renderFiles();
+        });
+        return chip;
+      })
+    );
+    askFiles.hidden = !attachedFiles.length;
+  }
+
+  // Empêche Electron de « naviguer » vers un fichier lâché à côté de la cible
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => e.preventDefault());
+
+  ['dragenter', 'dragover'].forEach((type) => {
+    bubble.addEventListener(type, (e) => {
+      e.preventDefault();
+      bubble.classList.add('dropping');
+      clearTimeout(hideTimer);
+    });
+  });
+  bubble.addEventListener('dragleave', (e) => {
+    if (!bubble.contains(e.relatedTarget)) bubble.classList.remove('dropping');
+  });
+  bubble.addEventListener('drop', (e) => {
+    e.preventDefault();
+    bubble.classList.remove('dropping');
+    const paths = [...((e.dataTransfer && e.dataTransfer.files) || [])]
+      .map((f) => window.maskot.pathForFile(f))
+      .filter(Boolean);
+    if (!paths.length) return;
+    attachedFiles = [...new Set([...attachedFiles, ...paths])].slice(0, 3);
+    renderFiles();
+    clearTimeout(hideTimer);
+    askInput.focus();
+  });
 
   // La réponse arrive en direct : chaque delta s'ajoute dans la bulle,
   // les pointillés « thinking » restent en curseur de frappe jusqu'à la fin
@@ -223,13 +272,18 @@
     // Pendant la réflexion : yeux en l'air, balancement pensif
     window.performances.interrupt();
     window.mascotAnim.thinkStart();
-    const res = await window.maskot.ask(q);
+    const res = await window.maskot.ask(q, attachedFiles);
     window.mascotAnim.thinkStop();
     askAnswer.classList.remove('thinking');
     // Le texte final du CLI fait foi (les deltas peuvent être incomplets)
     askAnswer.textContent = res && res.ok
       ? res.answer
       : `Impossible de répondre (${(res && res.error) || 'erreur'}).`;
+    if (res && res.ok) {
+      // La conversation garde le fichier en tête via --resume : chips inutiles
+      attachedFiles = [];
+      renderFiles();
+    }
     askInput.disabled = false;
     askInput.value = '';
     asking = false;
@@ -366,8 +420,12 @@
     window.mascotAnim.jump();
     showBubble();
   };
-  window.__maskotAsk = (q) => {
+  window.__maskotAsk = (q, file) => {
     showBubble();
+    if (file) {
+      attachedFiles = [String(file)];
+      renderFiles();
+    }
     ask(q);
   };
 
