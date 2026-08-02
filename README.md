@@ -48,7 +48,7 @@ Et sans rien lui demander :
 
 Un champ dans la bulle, et Claude qui répond **en streaming** : la réponse s'écrit sous tes yeux, pointillés en curseur de frappe. Le bouton **Dossier** choisit où Claude va chercher : « Général » pour une question libre, ou n'importe quel dossier de ta machine. Claude tourne alors dedans et peut lire le projet pour te répondre (« c'est quoi ce repo ? », « où est géré le login ? »…). Les cinq derniers dossiers restent à portée de clic.
 
-La conversation a de la suite dans les idées : chaque dossier garde son fil, même après un redémarrage du widget — tu peux répondre « détaille le deuxième point » et il saura de quoi tu parles. Et quand la question mérite mieux qu'une réponse rapide, clic droit → **Modèle des réponses** pour passer de Haiku à Sonnet ou Opus.
+La conversation a de la suite dans les idées : chaque dossier garde son fil, même après un redémarrage du widget — tu peux répondre « détaille le deuxième point » et il saura de quoi tu parles. Et quand la question mérite mieux qu'une réponse rapide, clic droit → **Modèle des réponses** pour passer de Haiku à Sonnet, Opus, ou Fable pour sortir le grand jeu.
 
 Pendant qu'il attend la réponse, il prend sa pose pensive : yeux au ciel, balancement lent.
 
