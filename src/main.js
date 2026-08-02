@@ -357,9 +357,30 @@ ipcMain.on('folder-menu', () => {
 
 let claudeBin = null;
 
+// Lancé depuis le Finder (wrapper .app), le PATH de launchd est minimal et
+// `zsh -lc` ne lit pas ~/.zshrc : on teste d'abord les emplacements connus.
+const CLAUDE_BIN_CANDIDATES = [
+  path.join(app.getPath('home'), '.local', 'bin', 'claude'),
+  path.join(app.getPath('home'), '.claude', 'local', 'claude'),
+  '/opt/homebrew/bin/claude',
+  '/usr/local/bin/claude',
+];
+
 function resolveClaudeBin() {
   return new Promise((resolve) => {
     if (claudeBin) return resolve(claudeBin);
+    const found = CLAUDE_BIN_CANDIDATES.find((p) => {
+      try {
+        fs.accessSync(p, fs.constants.X_OK);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    if (found) {
+      claudeBin = found;
+      return resolve(claudeBin);
+    }
     execFile('/bin/zsh', ['-lc', 'which claude'], { timeout: 8000 }, (err, stdout) => {
       claudeBin = !err && stdout.trim() ? stdout.trim().split('\n').pop() : null;
       resolve(claudeBin);
@@ -383,6 +404,8 @@ ipcMain.handle('ask-claude', async (_e, question) => {
         timeout: 150_000,
         cwd: folder || app.getPath('home'),
         maxBuffer: 1024 * 1024,
+        // stdin fermé, sinon claude attend 3 s des données qui ne viendront pas
+        stdio: ['ignore', 'pipe', 'pipe'],
       },
       (err, stdout, stderr) => {
         if (err) {
