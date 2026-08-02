@@ -87,7 +87,14 @@ async function fetchUsage() {
       'anthropic-beta': 'oauth-2025-04-20',
     },
   });
-  if (!res.ok) throw new Error(`API ${res.status}`);
+  if (!res.ok) {
+    // 404/410 : l'endpoint usage (non documenté) a probablement changé côté
+    // Anthropic — le message oriente vers une mise à jour du widget
+    if (res.status === 404 || res.status === 410) {
+      throw new Error(`API ${res.status} — endpoint changé ? Vérifie les mises à jour du widget`);
+    }
+    throw new Error(`API ${res.status}`);
+  }
   const data = await res.json();
   const fiveHour = data.five_hour || {};
   const used = fiveHour.utilization;

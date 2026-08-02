@@ -1,0 +1,21 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Vérifie la syntaxe de tous les fichiers source
+        run: |
+          for f in src/main.js src/preload.js src/renderer/*.js; do
+            echo "check $f"
+            node --check "$f"
+          done
