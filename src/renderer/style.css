@@ -204,6 +204,30 @@ body {
   background: var(--paper-line);
 }
 
+/* Fichiers déposés dans la bulle, joints à la prochaine question */
+#ask-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+#ask-files[hidden] {
+  display: none;
+}
+
+#ask-files .chip {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#bubble.dropping {
+  outline: 2px dashed var(--clay);
+  outline-offset: -7px;
+}
+
 #ask-answer {
   font-size: 11.5px;
   line-height: 1.55;

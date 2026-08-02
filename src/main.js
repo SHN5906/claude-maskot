@@ -431,11 +431,26 @@ function sendAsk(channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
 }
 
-ipcMain.handle('ask-claude', async (_e, question) => {
+ipcMain.handle('ask-claude', async (_e, question, files) => {
   const q = String(question || '').trim().slice(0, 500);
   if (!q) return { ok: false, error: 'question vide' };
   const bin = await resolveClaudeBin();
   if (!bin) return { ok: false, error: 'CLI claude introuvable' };
+  // Fichiers déposés dans la bulle : validés ici, joints au prompt pour que
+  // Claude les lise (le CLI sait lire un chemin absolu, images et PDF compris)
+  const attachments = (Array.isArray(files) ? files : [])
+    .slice(0, 3)
+    .map((f) => String(f))
+    .filter((f) => {
+      try {
+        return fs.statSync(f).isFile();
+      } catch {
+        return false;
+      }
+    });
+  const prompt = attachments.length
+    ? `${q}\n\nFichier(s) joint(s) — lis-les pour répondre :\n${attachments.map((f) => `- ${f}`).join('\n')}`
+    : q;
   const folder = getFolder();
   const folderKey = folder || '';
   const persona = `Réponds en français, de façon concise, en texte brut sans Markdown. L'utilisateur s'appelle « ${getName()} » — adresse-toi à lui par ce nom quand c'est naturel.`;
@@ -455,7 +470,7 @@ ipcMain.handle('ask-claude', async (_e, question) => {
 
   const run = (resumeId) =>
     new Promise((resolve) => {
-      const args = ['-p', q, '--model', getModel(), '--append-system-prompt', persona];
+      const args = ['-p', prompt, '--model', getModel(), '--append-system-prompt', persona];
       if (resumeId) args.push('--resume', resumeId);
       // stream-json : la réponse arrive en deltas, poussés à la bulle au fil
       // de l'eau (le CLI exige --verbose avec ce format en mode -p)
@@ -666,7 +681,7 @@ function devScreenshot() {
         const perf = (process.env.MASKOT_SHOT_PERF || '').replace(/[^a-z]/g, '');
         if (process.env.MASKOT_SHOT_ASK) {
           await win.webContents.executeJavaScript(
-            `window.__maskotAsk(${JSON.stringify(String(process.env.MASKOT_SHOT_ASK))})`
+            `window.__maskotAsk(${JSON.stringify(String(process.env.MASKOT_SHOT_ASK))}, ${JSON.stringify(process.env.MASKOT_SHOT_FILE || null)})`
           );
           await new Promise((r) => setTimeout(r, Number(process.env.MASKOT_SHOT_AT || 2000)));
         } else if (perf) {

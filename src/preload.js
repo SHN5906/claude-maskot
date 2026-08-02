@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('maskot', {
   onUsage: (cb) => ipcRenderer.on('usage', (_e, data) => cb(data)),
@@ -8,7 +8,8 @@ contextBridge.exposeInMainWorld('maskot', {
   onConfig: (cb) => ipcRenderer.on('config', (_e, config) => cb(config)),
   onEditName: (cb) => ipcRenderer.on('edit-name', () => cb()),
   refresh: () => ipcRenderer.invoke('refresh-usage'),
-  ask: (question) => ipcRenderer.invoke('ask-claude', question),
+  ask: (question, files) => ipcRenderer.invoke('ask-claude', question, files),
+  pathForFile: (file) => webUtils.getPathForFile(file),
   onAskDelta: (cb) => ipcRenderer.on('ask-delta', (_e, text) => cb(text)),
   onAskReset: (cb) => ipcRenderer.on('ask-reset', () => cb()),
   onFocusAsk: (cb) => ipcRenderer.on('focus-ask', () => cb()),
