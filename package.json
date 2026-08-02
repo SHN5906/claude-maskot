@@ -1,18 +1,30 @@
 {
   "name": "claude-maskot",
   "productName": "Claude Maskot",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Mascotte Claude flottante qui affiche le % restant de la session Claude Code (5 h)",
   "private": true,
   "main": "src/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.shn5906.claude-maskot",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [{ "target": "zip", "arch": ["arm64"] }],
+      "icon": "build/icon.icns"
+    },
+    "directories": { "output": "dist" },
+    "npmRebuild": false
   },
   "dependencies": {
     "gsap": "^3.12.5"
   },
   "devDependencies": {
-    "electron": "^37.2.0"
+    "electron": "^37.2.0",
+    "electron-builder": "^26.15.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

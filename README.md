@@ -25,7 +25,7 @@ Il affiche en direct l'état de ta session Claude Code (la fenêtre de 5 h), le 
 | Geste | Ce qui se passe |
 |---|---|
 | **Clic** | Il saute et ouvre la bulle : % restant, jauge, plan, heure de reset, % hebdo |
-| **Écrire dans la bulle** | Tu lui poses une question et Claude répond, dans le dossier de ton choix |
+| **Écrire dans la bulle** | Tu poses une question et Claude écrit sa réponse en direct, dans le dossier de ton choix — et il se souvient du fil, tu peux enchaîner |
 | **Double-clic** | Une animation différente à chaque fois, en cycle |
 | **Glisser** | Tu le poses où tu veux : il pendouille pendant le transport et la position est retenue |
 | **Survol** | Ses yeux suivent ton curseur |
@@ -45,7 +45,9 @@ Et sans rien lui demander :
 
 ## Pose-lui tes questions dans le dossier que tu veux
 
-Un champ dans la bulle, et Claude qui répond. Le bouton **Dossier** choisit où Claude va chercher : « Général » pour une question libre, ou n'importe quel dossier de ta machine. Claude tourne alors dedans et peut lire le projet pour te répondre (« c'est quoi ce repo ? », « où est géré le login ? »…). Les cinq derniers dossiers restent à portée de clic.
+Un champ dans la bulle, et Claude qui répond **en streaming** : la réponse s'écrit sous tes yeux, pointillés en curseur de frappe. Le bouton **Dossier** choisit où Claude va chercher : « Général » pour une question libre, ou n'importe quel dossier de ta machine. Claude tourne alors dedans et peut lire le projet pour te répondre (« c'est quoi ce repo ? », « où est géré le login ? »…). Les cinq derniers dossiers restent à portée de clic.
+
+La conversation a de la suite dans les idées : chaque dossier garde son fil tant que le widget tourne, tu peux répondre « détaille le deuxième point » et il saura de quoi tu parles.
 
 Pendant qu'il attend la réponse, il prend sa pose pensive : yeux au ciel, balancement lent.
 
@@ -73,42 +75,37 @@ Les flip-books (gym, drapeau, marche) sont les animations du mascot Claude recon
 
 ## Installation
 
-Prérequis : macOS · [Claude Code](https://claude.com/claude-code) connecté (Pro/Max) · Node ≥ 20 · pnpm.
+Prérequis dans tous les cas : macOS (Apple Silicon) · [Claude Code](https://claude.com/claude-code) connecté (Pro/Max).
+
+### L'app toute faite (recommandé)
+
+Télécharge le `.zip` de la [dernière release](https://github.com/SHN5906/claude-maskot/releases/latest), dézippe, glisse **Claude Maskot.app** dans `/Applications`, lance.
+
+L'app est signée ad hoc, pas notarisée (projet perso, pas de compte développeur Apple) : au premier lancement macOS va râler. Deux issues :
+
+```bash
+# enlever la quarantaine et lancer normalement
+xattr -dc "/Applications/Claude Maskot.app"
+```
+
+ou Réglages Système → **Confidentialité et sécurité** → « Ouvrir quand même » après la première tentative.
+
+Il apparaît en bas à droite. Pour le fermer : clic droit → **Quitter Claude Maskot** (pas de Dock ni de fenêtre, c'est un widget). Pour qu'il revienne tout seul : clic droit → **Ouvrir au démarrage de l'ordinateur**.
+
+### Depuis les sources
+
+Prérequis en plus : Node ≥ 20 · pnpm.
 
 ```bash
 git clone https://github.com/SHN5906/claude-maskot.git
 cd claude-maskot
 pnpm install
-pnpm start
+pnpm dist   # fabrique dist/mac-arm64/Claude Maskot.app → glisse-la dans /Applications
 ```
 
-Il apparaît en bas à droite. Pour le fermer : clic droit → **Quitter Claude Maskot** (pas de Dock ni de fenêtre, c'est un widget). Pour qu'il revienne tout seul : clic droit → **Ouvrir au démarrage de l'ordinateur**.
+### Mode dev
 
-### Le lancer sans le terminal
-
-Depuis la racine du repo, fabrique un wrapper `.app` qui pointe sur le binaire Electron du projet :
-
-```bash
-APP="/Applications/Claude Maskot.app"   # ou ~/Applications si tu n'es pas admin
-mkdir -p "$APP/Contents/MacOS"
-printf '#!/bin/sh\nexec "%s/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" "%s"\n' "$PWD" "$PWD" > "$APP/Contents/MacOS/launcher"
-chmod +x "$APP/Contents/MacOS/launcher"
-cat > "$APP/Contents/Info.plist" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleName</key><string>Claude Maskot</string>
-  <key>CFBundleIdentifier</key><string>com.claude-maskot.launcher</string>
-  <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleExecutable</key><string>launcher</string>
-  <key>LSUIElement</key><true/>
-</dict>
-</plist>
-EOF
-```
-
-« Claude Maskot » est ensuite dans Spotlight et `/Applications`, double-cliquable, épinglable au Dock. Le relancer alors qu'il tourne déjà ne fait rien : verrou single-instance. Le wrapper pointe en dur sur le dossier du repo, donc si tu déplaces le projet, refais la manip. Icône optionnelle : un `icon.icns` dans `Contents/Resources` plus la clé `CFBundleIconFile` → `icon` dans le plist.
+`pnpm start` lance le widget directement sur les sources — c'est aussi le mode à utiliser pour bidouiller le code : l'app packagée fige une copie, le mode dev suit tes modifications à chaque relance.
 
 ## Comment il sait ? (et vie privée)
 
