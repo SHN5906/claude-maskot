@@ -395,8 +395,21 @@ ipcMain.handle('ask-claude', async (_e, question) => {
   if (!bin) return { ok: false, error: 'CLI claude introuvable' };
   const folder = getFolder();
   const persona = `Réponds en français, de façon concise, en texte brut sans Markdown. L'utilisateur s'appelle « ${getName()} » — adresse-toi à lui par ce nom quand c'est naturel.`;
+  // PATH enrichi pour les hooks de l'utilisateur (node, etc.), absents du
+  // PATH minimal de launchd quand le widget est lancé depuis le Finder
+  const envPath = [
+    ...new Set([
+      path.dirname(bin),
+      path.join(app.getPath('home'), '.local', 'bin'),
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      ...(process.env.PATH || '').split(':'),
+    ]),
+  ]
+    .filter(Boolean)
+    .join(':');
   return new Promise((resolve) => {
-    execFile(
+    const child = execFile(
       bin,
       ['-p', q, '--model', 'haiku', '--append-system-prompt', persona],
       {
@@ -404,8 +417,7 @@ ipcMain.handle('ask-claude', async (_e, question) => {
         timeout: 150_000,
         cwd: folder || app.getPath('home'),
         maxBuffer: 1024 * 1024,
-        // stdin fermé, sinon claude attend 3 s des données qui ne viendront pas
-        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, PATH: envPath },
       },
       (err, stdout, stderr) => {
         if (err) {
@@ -418,6 +430,9 @@ ipcMain.handle('ask-claude', async (_e, question) => {
         }
       }
     );
+    // stdin fermé, sinon claude attend 3 s des données qui ne viendront pas
+    // (execFile ignore l'option stdio : on ferme le flux à la main)
+    child.stdin.end();
   });
 });
 
