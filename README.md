@@ -30,11 +30,14 @@ Il affiche en direct l'état de ta session Claude Code (la fenêtre de 5 h), le 
 | **Double-clic** | Une animation différente à chaque fois, en cycle |
 | **Glisser** | Tu le poses où tu veux : il pendouille pendant le transport et la position est retenue. Posé tout en haut de l'écran, la bulle s'ouvre vers le bas |
 | **Survol** | Ses yeux suivent ton curseur |
+| **Survol pendant la musique** | Deux boutons apparaissent : pause/lecture et piste suivante |
 | **⌥⌘M, depuis n'importe quelle app** | La bulle s'ouvre, champ prêt à taper — pas besoin de toucher la souris |
-| **Clic droit** | Actualiser · jouer une animation · changer ton petit nom · modèle des réponses · ouvrir au démarrage · quitter |
+| **Clic droit** | Actualiser · jouer une animation · taille · changer ton petit nom · modèle des réponses · ouvrir au démarrage · quitter |
 
 Et sans rien lui demander :
 
+- sur un petit écran (MacBook), il se fait plus petit ; déposé sur un grand moniteur, il reprend sa taille — et clic droit → **Taille** pour l'imposer toi-même
+- quand de la musique joue, il met son casque (voir plus bas)
 - toutes les 30–75 s d'inactivité, il s'occupe (gym, boxe, dodo…)
 - à **25 %** puis **10 %** restants, il t'alerte de lui-même : bulle + notification macOS
 - quand la session se recharge, il fête ça en dansant
@@ -65,6 +68,18 @@ Les réponses passent par `claude -p` : ton CLI Claude Code déjà connecté, do
 
 Par défaut c'est « Batman ». Clique sur le nom dans la bulle (ou clic droit → **Comment il m'appelle…**) pour en changer : la bulle, les notifications **et les réponses de Claude** t'appelleront comme ça.
 
+## Il écoute avec toi
+
+Quand de la musique joue sur le Mac, il met son casque. N'importe quelle source : Spotify, l'app Musique, YouTube dans un navigateur… tout ce que le centre de contrôle macOS voit, lui aussi le voit. Survole-le et deux boutons apparaissent : pause/lecture et piste suivante. En pause il enlève son casque, mais les boutons restent à portée de survol un quart d'heure — le temps de te décider à relancer.
+
+Un prérequis, une seule fois :
+
+```bash
+brew install media-control
+```
+
+Depuis macOS 15.4, l'accès système au « now playing » est verrouillé par Apple ; [media-control](https://github.com/ungive/media-control) est le petit CLI (BSD-3) qui le rouvre proprement. Sans lui, pas de casque ni de boutons, et tout le reste du widget fonctionne normalement.
+
 ## La troupe
 
 | <img src="docs/gym.gif" width="240" /> | <img src="docs/flag.gif" width="240" /> | <img src="docs/march.gif" width="240" /> |
@@ -79,7 +94,7 @@ Les flip-books (gym, drapeau, marche) sont les animations du mascot Claude recon
 
 ## Installation
 
-Prérequis dans tous les cas : macOS (Apple Silicon) · [Claude Code](https://claude.com/claude-code) connecté (Pro/Max).
+Prérequis dans tous les cas : macOS (Apple Silicon) · [Claude Code](https://claude.com/claude-code) connecté (Pro/Max). Optionnel, pour le casque et les contrôles musique : `brew install media-control`.
 
 ### L'app toute faite (recommandé)
 
@@ -138,11 +153,16 @@ MASKOT_SHOT=/tmp/ask.png MASKOT_SHOT_ASK="Pourquoi le ciel est bleu ?" MASKOT_SH
 
 # données factices (tester sans l'API, ex. l'état critique)
 MASKOT_SHOT_MOCK=92 pnpm start
+
+# casque et boutons musique sans musique réelle (playing ou paused)
+MASKOT_MUSIC_MOCK=playing MASKOT_SHOT_MUSIC=1 MASKOT_SHOT=/tmp/musique.png pnpm start
 ```
+
+`MASKOT_MUSIC_MOCK=playing|paused` marche aussi avec `pnpm start` tout court (le bouton pause bascule le faux état), et `MASKOT_MUSIC_DEBUG=1` logge les changements d'état détectés.
 
 | Fichier | Rôle |
 |---|---|
-| `src/main.js` | Fenêtre, trousseau, API d'usage, alertes, menus, dossier de contexte, CLI claude, démarrage auto |
+| `src/main.js` | Fenêtre, trousseau, API d'usage, alertes, menus, dossier de contexte, CLI claude, musique, démarrage auto |
 | `src/renderer/mascot.js` | Le personnage et ses animations GSAP |
 | `src/renderer/performances.js` | Flip-books + chorégraphies, planification idle |
 | `src/renderer/sprites.js` | Frames SVG embarquées (généré depuis la démo Codrops) |
