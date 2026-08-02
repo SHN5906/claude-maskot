@@ -419,6 +419,7 @@ const ASK_MODELS = {
   haiku: 'Haiku (rapide)',
   sonnet: 'Sonnet (équilibré)',
   opus: 'Opus (soigné)',
+  fable: 'Fable (maximal)',
 };
 
 function getModel() {
