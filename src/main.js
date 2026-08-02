@@ -6,9 +6,9 @@ const { execFile, spawn } = require('child_process');
 
 const WIN_W = 340;
 const WIN_H = 500;
-// Géométrie du renderer : #stage a 10px de padding et le svg mascotte
-// rend à 104 × 86/107 ≈ 84px de haut. Sert à convertir position fenêtre
-// ↔ position mascotte à l'écran selon l'ancrage.
+// Géométrie du renderer à l'échelle 1 : #stage a 10px de padding et le svg
+// mascotte rend à 104 × 86/107 ≈ 84px de haut. Sert à convertir position
+// fenêtre ↔ position mascotte à l'écran selon l'ancrage.
 const STAGE_PAD = 10;
 const MASCOT_H = 84;
 // En ancrage haut, les animations (saut, danse, scènes) montent au-dessus de
@@ -16,9 +16,58 @@ const MASCOT_H = 84;
 // déborder au-dessus de la zone de travail. Doit suivre le padding-top de
 // body.flip #stage dans style.css.
 const FLIP_HEADROOM = 44;
-const MASCOT_TOP_BOTTOM = WIN_H - STAGE_PAD - MASCOT_H; // ancrage bas (défaut)
-const MASCOT_TOP_TOP = FLIP_HEADROOM; // ancrage haut (mascotte près du bord supérieur)
 const POLL_MS = 60_000;
+
+// Échelle du widget selon l'écran : pleine taille à partir de ~1200 pt de
+// hauteur utile (grand moniteur), réduction linéaire en dessous (écran de
+// MacBook ≈ 0,75–0,8), plancher à 70 % pour que la bulle reste lisible.
+// Le renderer suit via setZoomFactor : toute la géométrie ci-dessus est
+// exprimée à l'échelle 1 et convertie par s().
+const SCALE_REF_H = 1200;
+const SCALE_MIN = 0.7;
+let scale = 1;
+
+const s = (v) => Math.round(v * scale);
+const winW = () => s(WIN_W);
+const winH = () => s(WIN_H);
+// Haut de la mascotte dans la fenêtre, selon l'ancrage
+const mascotTopBottom = () => winH() - s(STAGE_PAD) - s(MASCOT_H); // ancrage bas (défaut)
+const mascotTopTop = () => s(FLIP_HEADROOM); // ancrage haut
+
+// Taille choisie dans le menu clic droit : « auto » suit l'écran, les autres
+// valeurs sont des échelles fixes.
+const SIZE_CHOICES = [
+  { value: 'auto', label: 'Auto (selon l’écran)' },
+  { value: '1', label: 'Normale (100 %)' },
+  { value: '0.85', label: 'Moyenne (85 %)' },
+  { value: '0.7', label: 'Petite (70 %)' },
+];
+
+function getSizeMode() {
+  const v = String(loadState().size || 'auto');
+  return SIZE_CHOICES.some((c) => c.value === v) ? v : 'auto';
+}
+
+function scaleForDisplay(display) {
+  // Captures dev : échelle forcée (MASKOT_SHOT_SCALE) ou 1, pour des images
+  // reproductibles quel que soit l'écran de la machine.
+  if (process.env.MASKOT_SHOT) {
+    const forced = Number(process.env.MASKOT_SHOT_SCALE);
+    return forced ? Math.min(1, Math.max(SCALE_MIN, forced)) : 1;
+  }
+  const mode = getSizeMode();
+  if (mode !== 'auto') return Number(mode);
+  return Math.min(1, Math.max(SCALE_MIN, display.workArea.height / SCALE_REF_H));
+}
+
+// Centre du corps de la mascotte à l'écran pour une fenêtre posée en (x, y) :
+// c'est ce point qui décide de quel écran elle dépend.
+function mascotScreenAnchor(x, y) {
+  return {
+    x: x + Math.round(winW() / 2),
+    y: y + (flip ? mascotTopTop() : mascotTopBottom()) + Math.round(s(MASCOT_H) / 2),
+  };
+}
 
 const REFRESH_MIN_MS = 20_000;
 const STALE_MAX_MS = 10 * 60_000;
@@ -206,8 +255,8 @@ async function pushUsage() {
 function defaultPosition() {
   const { workArea } = screen.getPrimaryDisplay();
   return {
-    x: workArea.x + workArea.width - WIN_W - 24,
-    y: workArea.y + workArea.height - WIN_H - 16,
+    x: workArea.x + workArea.width - winW() - 24,
+    y: workArea.y + workArea.height - winH() - 16,
   };
 }
 
@@ -215,7 +264,7 @@ function clampToDisplays(x, y) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return defaultPosition();
   const display = screen.getAllDisplays().find(({ bounds }) => {
     return (
-      x > bounds.x - WIN_W + 60 &&
+      x > bounds.x - winW() + 60 &&
       x < bounds.x + bounds.width - 60 &&
       y > bounds.y - 40 &&
       y < bounds.y + bounds.height - 60
@@ -226,20 +275,20 @@ function clampToDisplays(x, y) {
     return defaultPosition();
   }
   const wa = display.workArea;
-  const cx = Math.min(Math.max(x, wa.x), wa.x + wa.width - WIN_W);
+  const cx = Math.min(Math.max(x, wa.x), wa.x + wa.width - winW());
   if (flip) {
     // Ancrage haut : la fenêtre peut déborder sous l'écran, seule la
     // mascotte (en haut de la fenêtre) doit rester entièrement visible.
     return {
       x: cx,
-      y: Math.min(Math.max(y, wa.y), wa.y + wa.height - (FLIP_HEADROOM + MASCOT_H)),
+      y: Math.min(Math.max(y, wa.y), wa.y + wa.height - (mascotTopTop() + s(MASCOT_H))),
     };
   }
   // Garde la fenêtre entière dans l'écran (la mascotte est ancrée en bas :
   // si la fenêtre grandit d'une version à l'autre, on remonte y).
   return {
     x: cx,
-    y: Math.min(Math.max(y, wa.y), wa.y + wa.height - WIN_H),
+    y: Math.min(Math.max(y, wa.y), wa.y + wa.height - winH()),
   };
 }
 
@@ -249,14 +298,53 @@ function setFlip(next) {
   if (win && !win.isDestroyed()) win.webContents.send('flip', flip);
 }
 
+// Redimensionne fenêtre + rendu quand l'écran d'accueil change, en gardant
+// la mascotte au même endroit (point fixe : son haut selon l'ancrage).
+function applyScale(display) {
+  const next = scaleForDisplay(display);
+  if (!win || win.isDestroyed() || Math.abs(next - scale) < 0.01) return false;
+  const [wx, wy] = win.getPosition();
+  const anchorX = wx + winW() / 2;
+  const anchorY = wy + (flip ? mascotTopTop() : mascotTopBottom());
+  scale = next;
+  win.webContents.setZoomFactor(scale);
+  const { x, y } = clampToDisplays(
+    Math.round(anchorX - winW() / 2),
+    anchorY - (flip ? mascotTopTop() : mascotTopBottom())
+  );
+  // resizable: false bloque aussi le redimensionnement programmatique sur
+  // certaines plateformes : on l'ouvre le temps du setBounds.
+  win.setResizable(true);
+  win.setBounds({ x, y, width: winW(), height: winH() });
+  win.setResizable(false);
+  return true;
+}
+
+// Réapplique l'échelle là où la mascotte se trouve (taille changée dans le
+// menu, écran branché/débranché, résolution modifiée).
+function rescaleToCurrentDisplay() {
+  if (!win || win.isDestroyed()) return;
+  const [x, y] = win.getPosition();
+  if (applyScale(screen.getDisplayNearestPoint(mascotScreenAnchor(x, y)))) {
+    const [nx, ny] = win.getPosition();
+    saveState({ x: nx, y: ny });
+  }
+}
+
 function createWindow() {
   const state = loadState();
   flip = Boolean(state.flip) || Boolean(process.env.MASKOT_SHOT_FLIP);
+  // L'échelle dépend de l'écran où la mascotte va apparaître : position
+  // dégrossie à l'échelle 1, puis re-clampée à la bonne taille.
+  const rough = clampToDisplays(state.x, state.y);
+  scale = scaleForDisplay(
+    screen.getDisplayNearestPoint(mascotScreenAnchor(rough.x, rough.y))
+  );
   const { x, y } = clampToDisplays(state.x, state.y);
 
   win = new BrowserWindow({
-    width: WIN_W,
-    height: WIN_H,
+    width: winW(),
+    height: winH(),
     x,
     y,
     transparent: true,
@@ -282,8 +370,10 @@ function createWindow() {
   win.setIgnoreMouseEvents(true, { forward: true });
 
   win.webContents.on('did-finish-load', () => {
+    win.webContents.setZoomFactor(scale);
     if (lastUsage) win.webContents.send('usage', lastUsage);
     if (flip) win.webContents.send('flip', true);
+    if (musicState.active) win.webContents.send('music', musicState);
   });
 
   win.on('closed', () => {
@@ -304,7 +394,7 @@ ipcMain.on('drag-start', () => {
   const offX = cursor.x - wx;
   // Offset curseur → haut de la mascotte à l'écran : stable même si
   // l'ancrage change en cours de drag (la fenêtre saute, pas la mascotte).
-  const offY = cursor.y - (wy + (flip ? MASCOT_TOP_TOP : MASCOT_TOP_BOTTOM));
+  const offY = cursor.y - (wy + (flip ? mascotTopTop() : mascotTopBottom()));
   dragTimer = setInterval(() => {
     if (!win) return;
     const p = screen.getCursorScreenPoint();
@@ -312,10 +402,10 @@ ipcMain.on('drag-start', () => {
     const wa = screen.getDisplayNearestPoint(p).workArea;
     // Plus assez de place au-dessus pour la bulle → la mascotte s'ancre en
     // haut de la fenêtre et la bulle s'ouvrira vers le bas.
-    setFlip(mascotY - MASCOT_TOP_BOTTOM < wa.y);
+    setFlip(mascotY - mascotTopBottom() < wa.y);
     win.setPosition(
       p.x - offX,
-      flip ? Math.max(wa.y, mascotY - MASCOT_TOP_TOP) : mascotY - MASCOT_TOP_BOTTOM
+      flip ? Math.max(wa.y, mascotY - mascotTopTop()) : mascotY - mascotTopBottom()
     );
   }, 16);
 });
@@ -326,6 +416,9 @@ ipcMain.on('drag-end', () => {
     dragTimer = null;
   }
   if (win) {
+    // Déposée sur un autre écran → la mascotte adopte l'échelle de cet écran
+    const [px, py] = win.getPosition();
+    applyScale(screen.getDisplayNearestPoint(mascotScreenAnchor(px, py)));
     const [x, y] = win.getPosition();
     saveState({ x, y, flip });
   }
@@ -605,6 +698,159 @@ ipcMain.handle('ask-claude', async (_e, question, files) => {
   return res;
 });
 
+/* ---------- Musique : casque + contrôles (media-control, MediaRemote) ---------- */
+
+// Détection système (Spotify, Musique, YouTube…) via le CLI media-control
+// (brew install media-control) : depuis macOS 15.4, MediaRemote est réservé
+// aux process Apple, ce CLI passe par /usr/bin/perl signé Apple. Absent →
+// la fonction est invisible, rien d'autre ne change.
+const MEDIA_CONTROL_CANDIDATES = [
+  '/opt/homebrew/bin/media-control',
+  '/usr/local/bin/media-control',
+];
+// Pause prolongée → on considère l'écoute terminée (MediaRemote garde des
+// entrées périmées : sans ça, le casque resterait toute la journée).
+const MUSIC_PAUSE_TIMEOUT_MS = 15 * 60_000;
+const MUSIC_RESPAWN_DELAY_MS = 15_000;
+// Un process qui meurt en moins de 60 s est « mort-né » ; 5 d'affilée →
+// on abandonne pour la session au lieu de relancer en boucle.
+const MUSIC_FAST_DEATH_MS = 60_000;
+const MUSIC_MAX_FAST_DEATHS = 5;
+
+let mediaControlBin = null;
+let musicProc = null;
+let musicRaw = {}; // dernier payload du stream, fusionné (mode diff)
+let musicState = { active: false, playing: false, title: null, artist: null };
+let musicPauseTimer = null;
+let musicFastDeaths = 0;
+let musicSpawnedAt = 0;
+
+function resolveMediaControl() {
+  return new Promise((resolve) => {
+    if (mediaControlBin) return resolve(mediaControlBin);
+    const found = MEDIA_CONTROL_CANDIDATES.find((p) => {
+      try {
+        fs.accessSync(p, fs.constants.X_OK);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    if (found) {
+      mediaControlBin = found;
+      return resolve(mediaControlBin);
+    }
+    execFile('/bin/zsh', ['-lc', 'which media-control'], { timeout: 8000 }, (err, stdout) => {
+      mediaControlBin = !err && stdout.trim() ? stdout.trim().split('\n').pop() : null;
+      resolve(mediaControlBin);
+    });
+  });
+}
+
+function setMusicState(next) {
+  const changed =
+    next.active !== musicState.active ||
+    next.playing !== musicState.playing ||
+    next.title !== musicState.title ||
+    next.artist !== musicState.artist;
+  musicState = next;
+  if (!changed) return;
+  if (process.env.MASKOT_MUSIC_DEBUG) console.log('[music]', JSON.stringify(musicState));
+  if (win && !win.isDestroyed()) win.webContents.send('music', musicState);
+}
+
+function updateFromMusicPayload(payload, diff) {
+  musicRaw = diff ? { ...musicRaw, ...payload } : payload;
+  const hasTrack = Boolean(musicRaw.title);
+  const playing = hasTrack && Boolean(musicRaw.playing);
+  clearTimeout(musicPauseTimer);
+  musicPauseTimer = null;
+  if (hasTrack && !playing) {
+    musicPauseTimer = setTimeout(() => {
+      musicRaw = {};
+      setMusicState({ active: false, playing: false, title: null, artist: null });
+    }, MUSIC_PAUSE_TIMEOUT_MS);
+  }
+  setMusicState({
+    active: hasTrack,
+    playing,
+    title: musicRaw.title || null,
+    artist: musicRaw.artist || null,
+  });
+}
+
+function spawnMusicStream() {
+  musicSpawnedAt = Date.now();
+  // --no-artwork : sans lui, chaque update embarque des centaines de Ko
+  // de pochette en base64 ; --debounce lisse les rafales d'événements.
+  musicProc = spawn(mediaControlBin, ['stream', '--no-artwork', '--debounce=250'], {
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  let buffer = '';
+  musicProc.stdout.on('data', (chunk) => {
+    buffer += chunk;
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      let msg;
+      try {
+        msg = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (msg.type === 'data' && msg.payload) {
+        updateFromMusicPayload(msg.payload, Boolean(msg.diff));
+      }
+    }
+  });
+  musicProc.on('error', () => {
+    // spawn impossible : close suit et gère la relance
+  });
+  musicProc.on('close', () => {
+    musicProc = null;
+    musicFastDeaths =
+      Date.now() - musicSpawnedAt < MUSIC_FAST_DEATH_MS ? musicFastDeaths + 1 : 0;
+    if (musicFastDeaths >= MUSIC_MAX_FAST_DEATHS) {
+      updateFromMusicPayload({}, false);
+      return;
+    }
+    setTimeout(() => {
+      if (!musicProc) spawnMusicStream();
+    }, MUSIC_RESPAWN_DELAY_MS);
+  });
+}
+
+async function startMusicWatch() {
+  // Mode dev : MASKOT_MUSIC_MOCK=playing|paused simule une piste sans
+  // dépendre d'un vrai lecteur (captures README, tests d'UI).
+  if (process.env.MASKOT_MUSIC_MOCK) {
+    updateFromMusicPayload(
+      {
+        title: 'All Along the Watchtower',
+        artist: 'Jimi Hendrix',
+        playing: process.env.MASKOT_MUSIC_MOCK !== 'paused',
+      },
+      false
+    );
+    return;
+  }
+  if (await resolveMediaControl()) spawnMusicStream();
+}
+
+ipcMain.on('music-toggle', () => {
+  if (process.env.MASKOT_MUSIC_MOCK) {
+    updateFromMusicPayload({ ...musicRaw, playing: !musicRaw.playing }, false);
+    return;
+  }
+  if (mediaControlBin) execFile(mediaControlBin, ['toggle-play-pause'], () => {});
+});
+
+ipcMain.on('music-next', () => {
+  if (!process.env.MASKOT_MUSIC_MOCK && mediaControlBin) {
+    execFile(mediaControlBin, ['next-track'], () => {});
+  }
+});
+
 /* ---------- Ouverture au démarrage (LaunchAgent) ---------- */
 
 const launchAgentPath = path.join(
@@ -669,6 +915,18 @@ ipcMain.on('context-menu', () => {
       submenu: Object.entries(PERF_LABELS).map(([name, label]) => ({
         label,
         click: () => win.webContents.send('play-perf', name),
+      })),
+    },
+    {
+      label: 'Taille',
+      submenu: SIZE_CHOICES.map(({ value, label }) => ({
+        label,
+        type: 'radio',
+        checked: getSizeMode() === value,
+        click: () => {
+          saveState({ size: value === 'auto' ? null : value });
+          rescaleToCurrentDisplay();
+        },
       })),
     },
     {
@@ -742,7 +1000,18 @@ function devScreenshot() {
         // La vraie souris ne doit pas interférer avec la scène capturée
         win.setIgnoreMouseEvents(true);
         const perf = (process.env.MASKOT_SHOT_PERF || '').replace(/[^a-z]/g, '');
-        if (process.env.MASKOT_SHOT_ASK) {
+        if (process.env.MASKOT_SHOT_MUSIC) {
+          const state = await win.webContents.executeJavaScript('window.__maskotMusicControls()');
+          console.log('music-controls state:', JSON.stringify(state));
+          // MASKOT_SHOT_MUSIC=click : clique le bouton pause/play avant la
+          // capture (teste toute la chaîne clic → IPC → état → icône)
+          if (process.env.MASKOT_SHOT_MUSIC === 'click') {
+            await win.webContents.executeJavaScript(
+              "document.getElementById('music-toggle-btn').click()"
+            );
+          }
+          await new Promise((r) => setTimeout(r, Number(process.env.MASKOT_SHOT_AT || 800)));
+        } else if (process.env.MASKOT_SHOT_ASK) {
           await win.webContents.executeJavaScript(
             `window.__maskotAsk(${JSON.stringify(String(process.env.MASKOT_SHOT_ASK))}, ${JSON.stringify(process.env.MASKOT_SHOT_FILE || null)})`
           );
@@ -785,6 +1054,11 @@ function devScreenshot() {
 app.whenReady().then(() => {
   if (app.dock) app.dock.hide();
   createWindow();
+  startMusicWatch();
+  // Écran branché/débranché ou résolution modifiée : l'échelle peut changer
+  screen.on('display-added', rescaleToCurrentDisplay);
+  screen.on('display-removed', rescaleToCurrentDisplay);
+  screen.on('display-metrics-changed', rescaleToCurrentDisplay);
   // ⌥⌘M depuis n'importe quelle app : la bulle s'ouvre prête à taper
   // (échec silencieux si le raccourci est déjà pris ailleurs)
   globalShortcut.register('Alt+Command+M', () => {
@@ -800,7 +1074,10 @@ app.whenReady().then(() => {
   setInterval(checkForUpdate, 24 * 3_600_000);
 });
 
-app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+  if (musicProc) musicProc.kill();
+});
 
 app.on('window-all-closed', () => {
   app.quit();

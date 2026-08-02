@@ -25,6 +25,32 @@
         <div class="tail" aria-hidden="true"></div>
       </div>
 
+      <div id="music-controls" hidden>
+        <button id="music-toggle-btn" type="button" aria-label="Pause / lecture">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <g class="ic-pause">
+              <rect x="2" y="2" width="3" height="8" />
+              <rect x="7" y="2" width="3" height="8" />
+            </g>
+            <g class="ic-play">
+              <rect x="3" y="2" width="2" height="8" />
+              <rect x="5" y="3" width="2" height="6" />
+              <rect x="7" y="4" width="2" height="4" />
+              <rect x="9" y="5" width="1" height="2" />
+            </g>
+          </svg>
+        </button>
+        <button id="music-next-btn" type="button" aria-label="Piste suivante">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <rect x="1" y="2" width="2" height="8" />
+            <rect x="3" y="3" width="2" height="6" />
+            <rect x="5" y="4" width="2" height="4" />
+            <rect x="7" y="5" width="1" height="2" />
+            <rect x="9" y="2" width="2" height="8" />
+          </svg>
+        </button>
+      </div>
+
       <div id="mascot">
         <!-- Walking Claude — rects reconstruits par @ayotomcs (Codrops, mai 2026) -->
         <svg id="mascot-svg" viewBox="0 0 107 86" fill="none" xmlns="http://www.w3.org/2000/svg" class="overflow-visible">
@@ -47,6 +73,11 @@
               <g id="eyes">
                 <rect id="left-eye" x="75" y="11" width="11" height="11" fill="black" />
                 <rect id="right-eye" x="21" y="11" width="11" height="11" fill="black" />
+              </g>
+              <g id="headphones" opacity="0">
+                <rect x="9" y="-9" width="89" height="7" fill="#141413" />
+                <rect x="3" y="-6" width="10" height="30" fill="#141413" />
+                <rect x="94" y="-6" width="10" height="30" fill="#141413" />
               </g>
             </g>
             <g id="zzz">

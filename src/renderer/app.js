@@ -9,6 +9,9 @@
   const askAnswer = document.getElementById('ask-answer');
   const askInput = document.getElementById('ask-input');
   const askFiles = document.getElementById('ask-files');
+  const musicControls = document.getElementById('music-controls');
+  const musicToggleBtn = document.getElementById('music-toggle-btn');
+  const musicNextBtn = document.getElementById('music-next-btn');
 
   let lastUsage = null;
   let bubbleOpen = false;
@@ -157,6 +160,62 @@
     window.performances.play(name);
   });
 
+  /* ---------- Musique : casque + contrôles ---------- */
+
+  let music = { active: false, playing: false, title: null, artist: null };
+  let hotHover = false;
+  let controlsShown = false;
+
+  // Boutons visibles seulement : piste active + souris sur la mascotte,
+  // hors drag et hors bulle (la bulle occupe déjà l'espace au-dessus).
+  function renderMusicControls() {
+    musicControls.classList.toggle('playing', music.playing);
+    musicToggleBtn.title = music.title
+      ? `${music.title}${music.artist ? ` — ${music.artist}` : ''}`
+      : '';
+    musicNextBtn.title = 'Piste suivante';
+    const show = music.active && hotHover && !dragging && !bubbleOpen;
+    if (show === controlsShown) return;
+    controlsShown = show;
+    gsap.killTweensOf(musicControls);
+    if (show) {
+      musicControls.hidden = false;
+      gsap.fromTo(
+        musicControls,
+        { opacity: 0, scale: 0.7, y: flipped ? -6 : 6 },
+        { opacity: 1, scale: 1, y: 0, duration: 0.25, ease: 'back.out(1.8)' }
+      );
+    } else {
+      gsap.to(musicControls, {
+        opacity: 0,
+        scale: 0.7,
+        duration: 0.15,
+        ease: 'power2.in',
+        onComplete: () => {
+          if (!controlsShown) musicControls.hidden = true;
+        },
+      });
+    }
+  }
+
+  musicToggleBtn.addEventListener('click', () => {
+    // Update optimiste : l'icône bascule tout de suite, le stream confirmera
+    music = { ...music, playing: !music.playing };
+    renderMusicControls();
+    window.maskot.musicToggle();
+  });
+
+  musicNextBtn.addEventListener('click', () => window.maskot.musicNext());
+
+  window.maskot.onMusic((m) => {
+    music = m || { active: false, playing: false, title: null, artist: null };
+    // Casque porté seulement pendant la lecture ; en pause il l'enlève,
+    // mais les boutons au survol restent tant qu'une piste est là
+    if (music.playing) window.mascotAnim.headphonesOn();
+    else window.mascotAnim.headphonesOff();
+    renderMusicControls();
+  });
+
   /* ---------- Bulle ---------- */
 
   function showBubble() {
@@ -173,6 +232,7 @@
     hideTimer = setTimeout(hideBubble, 8000);
     // Rafraîchit pendant que la bulle est ouverte pour un chiffre à jour
     window.maskot.refresh().then(renderUsage);
+    renderMusicControls();
   }
 
   function hideBubble() {
@@ -189,6 +249,7 @@
         bubble.hidden = true;
       },
     });
+    renderMusicControls();
   }
 
   function toggleBubble() {
@@ -328,10 +389,14 @@
   hot.addEventListener('mouseenter', () => {
     window.maskot.setIgnore(false);
     window.mascotAnim.setHover(true);
+    hotHover = true;
+    renderMusicControls();
   });
   hot.addEventListener('mouseleave', () => {
     if (!dragging) window.maskot.setIgnore(true);
     window.mascotAnim.setHover(false);
+    hotHover = false;
+    renderMusicControls();
   });
 
   // Les yeux suivent le curseur au survol
@@ -379,6 +444,7 @@
       }
       hideBubble();
       window.mascotAnim.dragStart();
+      renderMusicControls();
     }
     if (moved) {
       window.mascotAnim.tilt(e.screenX - lastX);
@@ -391,6 +457,7 @@
     dragging = false;
     mascot.classList.remove('dragging');
     window.maskot.dragEnd();
+    renderMusicControls();
     if (moved) {
       window.mascotAnim.dragEnd();
     } else if (clickTimer) {
@@ -426,6 +493,12 @@
   window.__maskotShowBubble = () => {
     window.mascotAnim.jump();
     showBubble();
+  };
+  window.__maskotMusicControls = () => {
+    hotHover = true;
+    renderMusicControls();
+    // État renvoyé au mode capture (diagnostic dev)
+    return { music, hotHover, controlsShown, hidden: musicControls.hidden };
   };
   window.__maskotAsk = (q, file) => {
     showBubble();

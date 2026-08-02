@@ -293,6 +293,30 @@
     gsap.to(root, { rotation: 0, duration: 0.3, ease: 'power2.inOut' });
   }
 
+  /* ---------- Casque : posé quand de la musique joue ---------- */
+
+  const headphones = '#headphones';
+  let wearingHeadphones = false;
+
+  function headphonesOn() {
+    if (wearingHeadphones) return;
+    wearingHeadphones = true;
+    gsap.killTweensOf(headphones);
+    // Le casque « se pose » sur la tête depuis le haut
+    gsap.fromTo(
+      headphones,
+      { opacity: 0, y: -14 },
+      { opacity: 1, y: 0, duration: 0.45, ease: 'bounce.out' }
+    );
+  }
+
+  function headphonesOff() {
+    if (!wearingHeadphones) return;
+    wearingHeadphones = false;
+    gsap.killTweensOf(headphones);
+    gsap.to(headphones, { opacity: 0, y: -10, duration: 0.3, ease: 'power2.in' });
+  }
+
   /* ---------- Yeux qui suivent le curseur ---------- */
 
   const eyeFollowX = gsap.quickTo(eyes, 'x', { duration: 0.3, ease: 'power2.out' });
@@ -335,6 +359,8 @@
     eyeTrack,
     setHover,
     resetPose,
+    headphonesOn,
+    headphonesOff,
     isBusy: () => jumping || dragging,
   };
 })();
