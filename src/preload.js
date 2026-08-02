@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('maskot', {
   onEditName: (cb) => ipcRenderer.on('edit-name', () => cb()),
   refresh: () => ipcRenderer.invoke('refresh-usage'),
   ask: (question) => ipcRenderer.invoke('ask-claude', question),
+  onAskDelta: (cb) => ipcRenderer.on('ask-delta', (_e, text) => cb(text)),
+  onAskReset: (cb) => ipcRenderer.on('ask-reset', () => cb()),
   getConfig: () => ipcRenderer.invoke('get-config'),
   setName: (name) => ipcRenderer.invoke('set-name', name),
   folderMenu: () => ipcRenderer.send('folder-menu'),

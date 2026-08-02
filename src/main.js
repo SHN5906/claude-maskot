@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, screen, Menu, Notification, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 
 const WIN_W = 340;
 const WIN_H = 500;
@@ -388,12 +388,21 @@ function resolveClaudeBin() {
   });
 }
 
+// Une conversation par dossier de contexte, le temps du run : le session_id
+// renvoyé par le CLI permet d'enchaîner les questions avec --resume.
+const askSessions = new Map();
+
+function sendAsk(channel, payload) {
+  if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+}
+
 ipcMain.handle('ask-claude', async (_e, question) => {
   const q = String(question || '').trim().slice(0, 500);
   if (!q) return { ok: false, error: 'question vide' };
   const bin = await resolveClaudeBin();
   if (!bin) return { ok: false, error: 'CLI claude introuvable' };
   const folder = getFolder();
+  const folderKey = folder || '';
   const persona = `Réponds en français, de façon concise, en texte brut sans Markdown. L'utilisateur s'appelle « ${getName()} » — adresse-toi à lui par ce nom quand c'est naturel.`;
   // PATH enrichi pour les hooks de l'utilisateur (node, etc.), absents du
   // PATH minimal de launchd quand le widget est lancé depuis le Finder
@@ -408,32 +417,79 @@ ipcMain.handle('ask-claude', async (_e, question) => {
   ]
     .filter(Boolean)
     .join(':');
-  return new Promise((resolve) => {
-    const child = execFile(
-      bin,
-      ['-p', q, '--model', 'haiku', '--append-system-prompt', persona],
-      {
+
+  const run = (resumeId) =>
+    new Promise((resolve) => {
+      const args = ['-p', q, '--model', 'haiku', '--append-system-prompt', persona];
+      if (resumeId) args.push('--resume', resumeId);
+      // stream-json : la réponse arrive en deltas, poussés à la bulle au fil
+      // de l'eau (le CLI exige --verbose avec ce format en mode -p)
+      args.push('--output-format', 'stream-json', '--include-partial-messages', '--verbose');
+      const child = spawn(bin, args, {
         // Le dossier choisi devient le cwd : Claude peut lire le projet
-        timeout: 150_000,
         cwd: folder || app.getPath('home'),
-        maxBuffer: 1024 * 1024,
         env: { ...process.env, PATH: envPath },
-      },
-      (err, stdout, stderr) => {
-        if (err) {
+        // stdin fermé, sinon claude attend 3 s des données qui ne viendront pas
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 150_000,
+      });
+      let buffer = '';
+      let result = null;
+      let stderrTail = '';
+      child.stdout.on('data', (chunk) => {
+        buffer += chunk;
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          let msg;
+          try {
+            msg = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (msg.type === 'stream_event') {
+            const ev = msg.event || {};
+            // Seul le texte de la réponse est affiché (pas le thinking)
+            if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta' && ev.delta.text) {
+              sendAsk('ask-delta', ev.delta.text);
+            }
+          } else if (msg.type === 'result') {
+            result = msg;
+          }
+        }
+      });
+      child.stderr.on('data', (chunk) => {
+        stderrTail = (stderrTail + chunk).slice(-400);
+      });
+      child.on('error', (e) => {
+        resolve({ ok: false, error: String(e.message || 'erreur').slice(0, 200) });
+      });
+      child.on('close', (_code, signal) => {
+        if (result && !result.is_error && typeof result.result === 'string') {
+          if (result.session_id) askSessions.set(folderKey, result.session_id);
+          resolve({ ok: true, answer: result.result.trim() });
+        } else if (signal) {
+          resolve({ ok: false, error: 'délai dépassé', resumed: Boolean(resumeId) });
+        } else {
+          const raw = (result && (result.result || result.error)) || stderrTail || 'erreur';
           resolve({
             ok: false,
-            error: String(stderr || err.message || 'erreur').trim().slice(0, 200),
+            error: String(raw).trim().slice(0, 200),
+            resumed: Boolean(resumeId),
           });
-        } else {
-          resolve({ ok: true, answer: stdout.trim() });
         }
-      }
-    );
-    // stdin fermé, sinon claude attend 3 s des données qui ne viendront pas
-    // (execFile ignore l'option stdio : on ferme le flux à la main)
-    child.stdin.end();
-  });
+      });
+    });
+
+  let res = await run(askSessions.get(folderKey) || null);
+  if (!res.ok && res.resumed) {
+    // La session a pu expirer côté CLI : on repart d'une conversation neuve
+    askSessions.delete(folderKey);
+    sendAsk('ask-reset');
+    res = await run(null);
+  }
+  delete res.resumed;
+  return res;
 });
 
 /* ---------- Ouverture au démarrage (LaunchAgent) ---------- */
